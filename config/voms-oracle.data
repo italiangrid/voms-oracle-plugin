@@ -1,0 +1,300 @@
+
+--
+-- Access Control List for containers (group/role/capability)
+--
+
+CREATE TABLE acl (
+	aid NUMBER(20) NOT NULL, 
+	adminid NUMBER(20) NOT NULL, 
+	operation NUMBER(5) NOT NULL, 
+	allow NUMBER(3) NOT NULL, 
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL
+);
+
+CREATE TABLE acld (
+	aid NUMBER(20) NOT NULL,
+	adminid NUMBER(20) NOT NULL,
+	operation NUMBER(20) NOT NULL,
+	allow NUMBER(3) NOT NULL,
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	deletedBy NUMBER(20) NOT NULL,
+	deletedSerial NUMBER(20) NOT NULL
+);
+
+--
+-- List of the administrator users (to be referenced in acls)
+--
+
+CREATE TABLE admins (
+	adminid NUMBER(20) NOT NULL,
+	dn varchar(250) NOT NULL,
+	ca NUMBER(5) NOT NULL, 
+        createdBy NUMBER(20) NOT NULL, 
+        createdSerial NUMBER(20) NOT NULL, 
+        PRIMARY KEY (adminid), 
+        UNIQUE (dn,ca)
+);
+
+--
+-- Known Certificate Authorities
+-- (generated from /etc/grid-security/certificates).
+--
+
+CREATE TABLE ca (
+	cid NUMBER(5) NOT NULL,
+	ca varchar(250) NOT NULL,
+	cadescr varchar(250),
+	PRIMARY KEY (cid), 
+        UNIQUE (ca)
+);
+
+--
+-- Holds all groups in a VO
+--
+
+CREATE TABLE groups (
+	gid NUMBER(20) NOT NULL,
+	dn varchar(255) NOT NULL,
+	parent NUMBER(20) NOT NULL,
+	aclid NUMBER(20) NOT NULL,
+	defaultAclid NUMBER(20) NOT NULL,
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	must NUMBER(3) default NULL,
+	PRIMARY KEY (gid)
+ );
+
+-- archive table for groups
+CREATE TABLE groupsd (
+	gid NUMBER(20) NOT NULL,
+	dn varchar(255) NOT NULL,
+	parent NUMBER(20) NOT NULL,
+	aclid NUMBER(20) NOT NULL,
+	defaultAclid NUMBER(20) NOT NULL,
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	deletedBy NUMBER(20) NOT NULL,
+	deletedSerial NUMBER(20) NOT NULL,
+	PRIMARY KEY (gid)
+);
+
+--
+-- Table structure for table 'validity'
+--
+
+CREATE TABLE validity (
+	vid NUMBER(20) NOT NULL,
+	begin NUMBER(14) NOT NULL,
+	end NUMBER(14) NOT NULL,
+	PRIMARY KEY (vid)
+);
+
+--
+-- Table structure for table 'periodicity'
+--
+
+CREATE TABLE periodicity (
+	pid NUMBER(20) NOT NULL,
+	hour NUMBER(3) NOT NULL,
+	day NUMBER(3) NOT NULL,
+	wday NUMBER(3) NOT NULL,
+	month NUMBER(3) NOT NULL,
+	year NUMBER(3) NOT NULL,
+	hduration NUMBER(10) NOT NULL,
+	PRIMARY KEY (pid)
+);
+
+--
+-- Support for special queries
+--
+
+CREATE TABLE queries (
+	qid NUMBER(20) NOT NULL,
+	query varchar(255) NOT NULL,
+	PRIMARY KEY  (qid)
+);
+
+--
+-- Holds all roles in a VO
+--
+
+CREATE TABLE roles (
+	rid NUMBER(20) NOT NULL,
+	role varchar(255) NOT NULL,
+	aclid NUMBER(20) NOT NULL,
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	PRIMARY KEY (rid)
+);
+
+-- archive table for roles
+CREATE TABLE rolesd (
+	rid NUMBER(20) NOT NULL,
+	role varchar(255) NOT NULL,
+	aclid NUMBER(20) NOT NULL,
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	deletedBy NUMBER(20) NOT NULL, 
+        deletedSerial NUMBER(20) NOT NULL, 
+        PRIMARY KEY  (rid), UNIQUE (role));
+
+--
+-- Holds all capabilities in the VO.
+--
+
+CREATE TABLE capabilities (
+	cid NUMBER(20) NOT NULL, 
+        capability varchar(255) NOT NULL, 
+        aclid NUMBER(20) NOT NULL, 
+        createdBy NUMBER(20) NOT NULL, 
+        createdSerial NUMBER(20) NOT NULL, 
+        PRIMARY KEY (cid)
+);
+
+-- archive table for capabilities
+CREATE TABLE capabilitiesd (
+	cid NUMBER(20) NOT NULL, 
+        capability varchar(255) NOT NULL, 
+        aclid NUMBER(20) NOT NULL, 
+        createdBy NUMBER(20) NOT NULL, 
+        createdSerial NUMBER(20) NOT NULL, 
+        deletedBy NUMBER(20) NOT NULL, 
+        deletedSerial NUMBER(20) NOT NULL, 
+        PRIMARY KEY (cid)
+);
+
+--
+-- Lists all users administered by the VOMS.
+--
+
+CREATE TABLE usr (
+	userid NUMBER(20) NOT NULL, 
+        dn varchar(250) NOT NULL, 
+        ca NUMBER(5) NOT NULL, 
+        cn varchar(250) NOT NULL, 
+        mail varchar(250),
+        cauri varchar(250),
+        createdBy NUMBER(20) NOT NULL,
+        createdSerial NUMBER(20) NOT NULL,
+        PRIMARY KEY (userid),
+	UNIQUE (dn,ca)
+);
+
+-- The archive records for usr.
+CREATE TABLE usrd (
+	userid NUMBER(20) NOT NULL,
+        dn varchar(250) NOT NULL,
+        ca NUMBER(5) NOT NULL,
+        cn varchar(250) NOT NULL,
+        mail varchar(250),
+        cauri varchar(250),
+        createdBy NUMBER(20) NOT NULL,
+        createdSerial NUMBER(20) NOT NULL,
+        deletedBy NUMBER(20) NOT NULL,
+        deletedSerial NUMBER(20) NOT NULL,
+        UNIQUE (dn,ca)
+);
+
+
+--
+-- Link table between usr and (roles/groups/capabilities)
+--
+
+CREATE TABLE m (
+	userid NUMBER(20) NOT NULL,
+	gid NUMBER(20) NOT NULL,
+	rid NUMBER(20),
+	cid NUMBER(20),
+	vid NUMBER(20),
+	pid NUMBER(20),
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	UNIQUE (userid, gid, rid, cid)
+);
+
+
+-- archives for membership
+CREATE TABLE md (
+	userid NUMBER(20) NOT NULL, 
+        gid NUMBER(20) NOT NULL, 
+        rid NUMBER(20), 
+        cid NUMBER(20), 
+        vid NUMBER(20), 
+        pid NUMBER(20), 
+        createdBy NUMBER(20) NOT NULL, 
+        createdSerial NUMBER(20) NOT NULL, 
+        deletedBy NUMBER(20) NOT NULL, 
+        deletedSerial NUMBER(20) NOT NULL, 
+        UNIQUE (userid, gid, rid, cid)
+);
+
+--
+-- Changelog tables.
+--
+
+CREATE TABLE realtime (
+	transaction NUMBER(20) NOT NULL,
+        time NUMBER(14) NOT NULL,
+        PRIMARY KEY (transaction)
+);
+
+CREATE TABLE sequences (
+	name varchar(32) NOT NULL, 
+        value NUMBER(20) NULL
+);
+
+CREATE TABLE createuser_queue (
+	reqid NUMBER(20) NOT NULL,
+        dn varchar(255) NOT NULL,
+        cid NUMBER(6) NOT NULL,
+        cn varchar(255),
+        cauri varchar(255),
+        mail varchar(255),
+        clientemail varchar(255),
+        clientcomment varchar(255),
+        admincomment varchar(255),
+        status NUMBER(20) NOT NULL,
+        PRIMARY KEY (reqid)
+);
+
+--
+-- Database version number.
+--
+-- Version 0 is, where the version table doesn't exists.
+-- Later versions can be tested by 
+--
+--      select max(version) from version;
+--
+
+CREATE TABLE version (
+	version NUMBER(10)
+);
+
+-- Sequence number of the issued attribute certificates in bigint format.
+CREATE TABLE seqnumber (
+	seq varchar(50) NOT NULL
+);
+
+--
+-- Persistent storage of serialized Java request objects.  It would be
+-- a nightmare to define and maintain a detailed database mapping for
+-- request type hierarchies, state hierarchies, the chronicle, etc.,
+-- so we cheat by storing the domain objects themselves in the
+-- database.  We speed up database access by duplicating some of the
+-- request data in indexed columns.
+--
+
+CREATE TABLE requests (
+	reqid NUMBER(20) NOT NULL,
+        complete NUMBER(1),
+        type varchar(128),
+        action varchar(128),
+        container varchar(128),
+        state varchar(32),
+        requester NUMBER(20),
+        lastchange NUMBER(14) NOT NULL,
+        request blob NOT NULL,
+        PRIMARY KEY (reqid)
+);
