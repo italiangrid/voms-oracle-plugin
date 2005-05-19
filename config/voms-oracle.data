@@ -1,36 +1,76 @@
 
+DROP TABLE acl;
+DROP TABLE acld;
+DROP TABLE admins;
+DROP TABLE ca;
+DROP TABLE groups;
+DROP TABLE groupsd;
+DROP TABLE m;
+DROP TABLE md;
+DROP TABLE validity;
+DROP TABLE periodicity;
+DROP TABLE queries;
+DROP TABLE roles;
+DROP TABLE rolesd;
+DROP TABLE capabilities;
+DROP TABLE capabilitiesd;
+DROP TABLE usr;
+DROP TABLE usrd;
+DROP TABLE realtime;
+DROP TABLE sequences;
+DROP TABLE seqnumber;
+DROP TABLE version;
+DROP TABLE requests;
+
 --
 -- Access Control List for containers (group/role/capability)
 --
 
 CREATE TABLE acl (
+        -- ACL identifier (common id for all entries in one list)
 	aid NUMBER(20) NOT NULL, 
+	-- Administrator's identifier
 	adminid NUMBER(20) NOT NULL, 
-	operation NUMBER(5) NOT NULL, 
-	allow NUMBER(3) NOT NULL, 
+	-- Operation on the container
+	operation NUMBER(5) NOT NULL,
+	-- Allow/deny flag (default deny). 
+	allow NUMBER(1) NOT NULL, 
+  	-- Changelog
 	createdBy NUMBER(20) NOT NULL,
 	createdSerial NUMBER(20) NOT NULL
 );
+
+CREATE INDEX acl_aid ON acl(aid);
+CREATE INDEX acl_ternary ON acl(aid, adminid, operation);
 
 CREATE TABLE acld (
 	aid NUMBER(20) NOT NULL,
 	adminid NUMBER(20) NOT NULL,
 	operation NUMBER(20) NOT NULL,
-	allow NUMBER(3) NOT NULL,
+	allow NUMBER(1) NOT NULL,
 	createdBy NUMBER(20) NOT NULL,
 	createdSerial NUMBER(20) NOT NULL,
 	deletedBy NUMBER(20) NOT NULL,
 	deletedSerial NUMBER(20) NOT NULL
 );
 
+CREATE INDEX acld_aid ON acld(aid);
+CREATE INDEX acld_aid2 ON acld(aid, createdSerial, deletedSerial);
+CREATE INDEX acld_ternary ON acld(aid, adminid, operation);
+CREATE INDEX acld_ternary2 ON acld(aid, adminid, operation, createdSerial, deletedSerial);
+
 --
 -- List of the administrator users (to be referenced in acls)
 --
 
 CREATE TABLE admins (
+        -- Administrator's identifier
 	adminid NUMBER(20) NOT NULL,
-	dn varchar(250) NOT NULL,
+	-- the DN of the administrator
+	dn varchar2(250) NOT NULL,
+	-- Issuer certificate authority
 	ca NUMBER(5) NOT NULL, 
+  	-- Changelog
         createdBy NUMBER(20) NOT NULL, 
         createdSerial NUMBER(20) NOT NULL, 
         PRIMARY KEY (adminid), 
@@ -43,9 +83,14 @@ CREATE TABLE admins (
 --
 
 CREATE TABLE ca (
+        -- Internal id.
 	cid NUMBER(5) NOT NULL,
-	ca varchar(250) NOT NULL,
-	cadescr varchar(250),
+	-- Distinguished name (UTF-8).
+	ca varchar2(250) NOT NULL,
+	-- free-form description of the CA
+	cadescr varchar2(250),
+  	-- No createdBy/createdSerial, the rows in this table, because 
+  	-- they should be never changed/deleted by the administrative interface.
 	PRIMARY KEY (cid), 
         UNIQUE (ca)
 );
@@ -55,30 +100,100 @@ CREATE TABLE ca (
 --
 
 CREATE TABLE groups (
+        -- Internal entity identifier.
 	gid NUMBER(20) NOT NULL,
-	dn varchar(255) NOT NULL,
+	-- Fully Qualified Group Name
+	dn varchar2(255) NOT NULL,
+	-- Parent group.
 	parent NUMBER(20) NOT NULL,
-	aclid NUMBER(20) NOT NULL,
+	-- Applied ACL (entries are in 'or' relation).
+ 	aclid NUMBER(20) NOT NULL,
+	-- Default ACL for a group/role created under this group.
 	defaultAclid NUMBER(20) NOT NULL,
+	-- Changelog.
 	createdBy NUMBER(20) NOT NULL,
 	createdSerial NUMBER(20) NOT NULL,
-	must NUMBER(3) default NULL,
+	must NUMBER(1) default NULL,
 	PRIMARY KEY (gid)
  );
+
+CREATE UNIQUE INDEX groups_dn ON groups(dn);
+CREATE INDEX groups_parent ON groups(parent);
 
 -- archive table for groups
 CREATE TABLE groupsd (
 	gid NUMBER(20) NOT NULL,
-	dn varchar(255) NOT NULL,
+	dn varchar2(255) NOT NULL,
 	parent NUMBER(20) NOT NULL,
 	aclid NUMBER(20) NOT NULL,
 	defaultAclid NUMBER(20) NOT NULL,
 	createdBy NUMBER(20) NOT NULL,
 	createdSerial NUMBER(20) NOT NULL,
 	deletedBy NUMBER(20) NOT NULL,
-	deletedSerial NUMBER(20) NOT NULL,
-	PRIMARY KEY (gid)
+	deletedSerial NUMBER(20) NOT NULL
 );
+
+CREATE INDEX groupsd_gid ON groupsd(gid);
+CREATE INDEX groupsd_gid2 ON groupsd(gid, createdSerial, deletedSerial);
+CREATE INDEX groupsd_parent ON groupsd(parent);
+CREATE INDEX groupsd_parent2 ON groupsd(parent, createdSerial, deletedSerial);
+CREATE INDEX groupsd_dn ON groupsd(dn);
+CREATE INDEX groupsd_dn2 ON groupsd(dn, createdSerial, deletedSerial);
+
+--
+-- Link table between usr and (roles/groups/capabilities)
+--
+
+CREATE TABLE m (
+        -- user's identifier
+	userid NUMBER(20) NOT NULL,
+	-- group 
+	gid NUMBER(20) NOT NULL,
+	-- role
+	rid NUMBER(20),
+	-- capability
+	cid NUMBER(20),
+	-- validity
+	vid NUMBER(20),
+	-- periodicity
+	pid NUMBER(20),
+	-- Changelog 
+	createdBy NUMBER(20) NOT NULL,
+	createdSerial NUMBER(20) NOT NULL,
+	UNIQUE (userid, gid, rid, cid)
+);
+
+CREATE INDEX m_userid ON m(userid);
+CREATE INDEX m_gid ON m(gid);
+CREATE INDEX m_rid ON m(rid);
+CREATE INDEX m_cid ON m(cid);
+CREATE INDEX m_container ON m(gid,rid,cid);
+
+-- archives for membership
+CREATE TABLE md (
+	userid NUMBER(20) NOT NULL, 
+        gid NUMBER(20) NOT NULL, 
+        rid NUMBER(20), 
+        cid NUMBER(20), 
+        vid NUMBER(20), 
+        pid NUMBER(20), 
+        createdBy NUMBER(20) NOT NULL, 
+        createdSerial NUMBER(20) NOT NULL, 
+        deletedBy NUMBER(20) NOT NULL, 
+        deletedSerial NUMBER(20) NOT NULL
+);
+
+CREATE INDEX md_userid ON md(userid);
+CREATE INDEX md_userid2 ON md(userid, createdSerial, deletedSerial);
+CREATE INDEX md_gid ON md(gid);
+CREATE INDEX md_gid2 ON md(gid, createdSerial, deletedSerial);
+CREATE INDEX md_rid ON md(rid);
+CREATE INDEX md_rid2 ON md(rid, createdSerial, deletedSerial);
+CREATE INDEX md_cid ON md(cid);
+CREATE INDEX md_cid2 ON md(cid, createdSerial, deletedSerial);
+CREATE INDEX md_container ON md(gid,rid,cid);
+CREATE INDEX md_container2 ON md(gid,rid,cid, createdSerial, deletedSerial);
+
 
 --
 -- Table structure for table 'validity'
@@ -112,7 +227,7 @@ CREATE TABLE periodicity (
 
 CREATE TABLE queries (
 	qid NUMBER(20) NOT NULL,
-	query varchar(255) NOT NULL,
+	query varchar2(255) NOT NULL,
 	PRIMARY KEY  (qid)
 );
 
@@ -122,48 +237,65 @@ CREATE TABLE queries (
 
 CREATE TABLE roles (
 	rid NUMBER(20) NOT NULL,
-	role varchar(255) NOT NULL,
+	role varchar2(255) NOT NULL,
 	aclid NUMBER(20) NOT NULL,
 	createdBy NUMBER(20) NOT NULL,
 	createdSerial NUMBER(20) NOT NULL,
 	PRIMARY KEY (rid)
 );
 
+CREATE UNIQUE INDEX roles_role ON roles(role);
+
 -- archive table for roles
 CREATE TABLE rolesd (
 	rid NUMBER(20) NOT NULL,
-	role varchar(255) NOT NULL,
+	role varchar2(255) NOT NULL,
 	aclid NUMBER(20) NOT NULL,
 	createdBy NUMBER(20) NOT NULL,
 	createdSerial NUMBER(20) NOT NULL,
 	deletedBy NUMBER(20) NOT NULL, 
-        deletedSerial NUMBER(20) NOT NULL, 
-        PRIMARY KEY  (rid), UNIQUE (role));
+        deletedSerial NUMBER(20) NOT NULL
+);
+
+CREATE INDEX rolesd_rid ON rolesd(rid);
+CREATE INDEX rolesd_rid2 ON rolesd(rid, createdSerial, deletedSerial);
+CREATE INDEX rolesd_role ON rolesd(role);
+CREATE INDEX rolesd_role2 ON rolesd(role, createdSerial, deletedSerial);
 
 --
 -- Holds all capabilities in the VO.
 --
 
 CREATE TABLE capabilities (
-	cid NUMBER(20) NOT NULL, 
-        capability varchar(255) NOT NULL, 
+        -- Internal entity identifier.
+	cid NUMBER(20) NOT NULL, 	
+	-- Name of the capability (for administration)
+        capability varchar2(255) NOT NULL, 
+	-- Applied ACL (entries are in 'or' relation).
         aclid NUMBER(20) NOT NULL, 
+	-- Changelog
         createdBy NUMBER(20) NOT NULL, 
         createdSerial NUMBER(20) NOT NULL, 
         PRIMARY KEY (cid)
 );
 
+CREATE INDEX cap_capability ON capabilities(capability);
+
 -- archive table for capabilities
 CREATE TABLE capabilitiesd (
 	cid NUMBER(20) NOT NULL, 
-        capability varchar(255) NOT NULL, 
+        capability varchar2(255) NOT NULL, 
         aclid NUMBER(20) NOT NULL, 
         createdBy NUMBER(20) NOT NULL, 
         createdSerial NUMBER(20) NOT NULL, 
         deletedBy NUMBER(20) NOT NULL, 
-        deletedSerial NUMBER(20) NOT NULL, 
-        PRIMARY KEY (cid)
+        deletedSerial NUMBER(20) NOT NULL
 );
+
+CREATE INDEX capd_cid ON capabilitiesd(cid);
+CREATE INDEX capd_cid2 ON capabilitiesd(cid, createdSerial, deletedSerial);
+CREATE INDEX capd_capability ON capabilitiesd(capability);
+CREATE INDEX capd_capability2 ON capabilitiesd(capability, createdSerial, deletedSerial);
 
 --
 -- Lists all users administered by the VOMS.
@@ -171,11 +303,11 @@ CREATE TABLE capabilitiesd (
 
 CREATE TABLE usr (
 	userid NUMBER(20) NOT NULL, 
-        dn varchar(250) NOT NULL, 
+        dn varchar2(250) NOT NULL, 
         ca NUMBER(5) NOT NULL, 
-        cn varchar(250) NOT NULL, 
-        mail varchar(250),
-        cauri varchar(250),
+        cn varchar2(250) NOT NULL, 
+        mail varchar2(250),
+        cauri varchar2(250),
         createdBy NUMBER(20) NOT NULL,
         createdSerial NUMBER(20) NOT NULL,
         PRIMARY KEY (userid),
@@ -185,50 +317,21 @@ CREATE TABLE usr (
 -- The archive records for usr.
 CREATE TABLE usrd (
 	userid NUMBER(20) NOT NULL,
-        dn varchar(250) NOT NULL,
+        dn varchar2(250) NOT NULL,
         ca NUMBER(5) NOT NULL,
-        cn varchar(250) NOT NULL,
-        mail varchar(250),
-        cauri varchar(250),
+        cn varchar2(250) NOT NULL,
+        mail varchar2(250),
+        cauri varchar2(250),
         createdBy NUMBER(20) NOT NULL,
         createdSerial NUMBER(20) NOT NULL,
         deletedBy NUMBER(20) NOT NULL,
-        deletedSerial NUMBER(20) NOT NULL,
-        UNIQUE (dn,ca)
+        deletedSerial NUMBER(20) NOT NULL
 );
 
-
---
--- Link table between usr and (roles/groups/capabilities)
---
-
-CREATE TABLE m (
-	userid NUMBER(20) NOT NULL,
-	gid NUMBER(20) NOT NULL,
-	rid NUMBER(20),
-	cid NUMBER(20),
-	vid NUMBER(20),
-	pid NUMBER(20),
-	createdBy NUMBER(20) NOT NULL,
-	createdSerial NUMBER(20) NOT NULL,
-	UNIQUE (userid, gid, rid, cid)
-);
-
-
--- archives for membership
-CREATE TABLE md (
-	userid NUMBER(20) NOT NULL, 
-        gid NUMBER(20) NOT NULL, 
-        rid NUMBER(20), 
-        cid NUMBER(20), 
-        vid NUMBER(20), 
-        pid NUMBER(20), 
-        createdBy NUMBER(20) NOT NULL, 
-        createdSerial NUMBER(20) NOT NULL, 
-        deletedBy NUMBER(20) NOT NULL, 
-        deletedSerial NUMBER(20) NOT NULL, 
-        UNIQUE (userid, gid, rid, cid)
-);
+CREATE INDEX usrd_userid ON usrd(userid);
+CREATE INDEX usrd_userid2 ON usrd(userid, createdSerial, deletedSerial);
+CREATE INDEX usrd_dnca ON usrd(dn, ca);
+CREATE INDEX usrd_dnca2 ON usrd(dn, ca, createdSerial, deletedSerial);
 
 --
 -- Changelog tables.
@@ -240,24 +343,14 @@ CREATE TABLE realtime (
         PRIMARY KEY (transaction)
 );
 
+CREATE INDEX realtime_time ON realtime(time);
+
 CREATE TABLE sequences (
-	name varchar(32) NOT NULL, 
+	name varchar2(32) NOT NULL, 
         value NUMBER(20) NULL
 );
 
-CREATE TABLE createuser_queue (
-	reqid NUMBER(20) NOT NULL,
-        dn varchar(255) NOT NULL,
-        cid NUMBER(6) NOT NULL,
-        cn varchar(255),
-        cauri varchar(255),
-        mail varchar(255),
-        clientemail varchar(255),
-        clientcomment varchar(255),
-        admincomment varchar(255),
-        status NUMBER(20) NOT NULL,
-        PRIMARY KEY (reqid)
-);
+CREATE INDEX sequences_name ON sequences(name);
 
 --
 -- Database version number.
@@ -274,7 +367,7 @@ CREATE TABLE version (
 
 -- Sequence number of the issued attribute certificates in bigint format.
 CREATE TABLE seqnumber (
-	seq varchar(50) NOT NULL
+	seq varchar2(50) NOT NULL
 );
 
 --
@@ -289,12 +382,20 @@ CREATE TABLE seqnumber (
 CREATE TABLE requests (
 	reqid NUMBER(20) NOT NULL,
         complete NUMBER(1),
-        type varchar(128),
-        action varchar(128),
-        container varchar(128),
-        state varchar(32),
+        type varchar2(128),
+        action varchar2(128),
+        container varchar2(128),
+        state varchar2(32),
         requester NUMBER(20),
         lastchange NUMBER(14) NOT NULL,
         request blob NOT NULL,
         PRIMARY KEY (reqid)
 );
+
+CREATE INDEX req_state ON requests(state);
+CREATE INDEX req_complete ON requests(complete);
+CREATE INDEX req_type ON requests(type);
+CREATE INDEX req_action ON requests(action);
+CREATE INDEX req_container ON requests(container);
+CREATE INDEX req_requester ON requests(requester);
+CREATE INDEX req_lastchange ON requests(lastchange);
