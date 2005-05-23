@@ -19,9 +19,6 @@ AC_PROG_CXXCPP
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-AC_CHECK_LIB([ociei], [OCIEnvCreate])
-AC_CHECK_LIB([occi], [CreateEnvironment])
-ORACLE_CHECKS
 
 # Checks for header files.
 
@@ -31,6 +28,9 @@ AC_C_CONST
 
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE
+
+# Dependencies checks
+AC_ORACLE_INSTANTCLIENT
 
 AC_GLITE
 
