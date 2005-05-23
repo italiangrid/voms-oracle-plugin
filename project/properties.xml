@@ -15,14 +15,20 @@
 	Common build properties file for the GLite security voms-oracle component
 	
 	Authors: Joachim Flammer <Joachim.Flammer@cern.ch>
-	Version info: $Id: properties.xml,v 1.1 2005/05/03 13:02:04 vventuri Exp $
+	Version info: $Id: properties.xml,v 1.2 2005/05/23 16:25:39 vventuri Exp $
 	Release: $Name:  $	
 	
 	Revision history:
 	$Log: properties.xml,v $
-	Revision 1.1  2005/05/03 13:02:04  vventuri
-	Initial revision
+	Revision 1.2  2005/05/23 16:25:39  vventuri
+	Use oracle-instanclient.m4
 
+	Revision 1.1.1.1.4.1  2005/05/23 16:14:00  vventuri
+	Use oracle-instanclient.m4
+	
+	Revision 1.1.1.1  2005/05/03 13:02:04  vventuri
+	Initial revision.
+	
 	Revision 1.4  2004/07/20 16:08:30  flammer
 	Changed incorrect my_... instead of .._template entries for subsystem and component.
 	
@@ -72,6 +78,6 @@
 	      Define extra properties here ...
 	     ====================================================== -->
 
-        <property name="m4files.list" value="glite.m4"/>
+        <property name="m4files.list" value="glite.m4 oracle-instantclient.m4"/>
 		
 </project>
