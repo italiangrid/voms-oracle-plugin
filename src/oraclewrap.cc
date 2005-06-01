@@ -20,11 +20,11 @@
 #define CATCH \
 catch(oracle::occi::SQLException& e) \
 { \
-  throw sqliface::DBEXC(e.getErrorCode() + ": " + e.getMessage()); \
+  throw sqliface::DBEXC(e.getMessage()); \
 } \
-catch(std::exception& e) \
+catch (...) \
 { \
-  throw sqliface::DBEXC(e.what()); \
+  throw sqliface::DBEXC(); \
 } \
 
 namespace bsq {
@@ -78,8 +78,10 @@ std::string orinterface::dbcombine(const char * dbname,
 
 orinterface::~orinterface()
 {
-  env->terminateConnection(conn);
-  oracle::occi::Environment::terminateEnvironment(env);
+  if(conn)
+    env->terminateConnection(conn);
+  if(env)
+    oracle::occi::Environment::terminateEnvironment(env);
 }
 
 sqliface::query *orinterface::newquery()
@@ -98,7 +100,7 @@ orquery::~orquery(void)
     if (stmt)
       conn->terminateStatement(stmt);
   }
-  catch(...) {}
+  CATCH
 }
 
 sqliface::query &orquery::operator<<(std::string s)
@@ -243,7 +245,8 @@ orresults::~orresults()
       conn->terminateStatement(stmt);
     stmt = NULL;
     
-  } catch(...) {}
+  } 
+  CATCH
 }
 
 int orresults::size() const
