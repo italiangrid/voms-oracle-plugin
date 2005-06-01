@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT([Glite Security VOMS Oracle], [1.0.1])
+AC_INIT([Glite Security VOMS Oracle], [1.0.2])
 AC_CONFIG_AUX_DIR([./project])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/oraclewrap.cc])
