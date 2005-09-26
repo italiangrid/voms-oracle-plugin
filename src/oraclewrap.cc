@@ -46,8 +46,8 @@ orinterface::orinterface(const char *dbname,
 }
 
 orinterface::orinterface() : env(NULL), 
-			     conn(NULL), 
-			     err(0) {}
+                             conn(NULL), 
+                             err(0) {}
 
 int orinterface::error(void) const
 {
@@ -90,8 +90,9 @@ sqliface::query *orinterface::newquery()
 }
 
 orquery::orquery(bsq::orinterface &face) : conn(face.conn), 
-					   stmt(NULL), 
-					   query("") {}
+                                           stmt(NULL), 
+                                           query(""),
+                                           err(0) {}
 
 orquery::~orquery(void) 
 {
@@ -107,7 +108,7 @@ sqliface::query &orquery::operator<<(std::string s)
 {
   std::string tmp = query + s;
   
-  int         pos = tmp.find_last_of('\n');
+  int pos = tmp.find_last_of('\n');
   if (pos == -1)
     pos = 0;
 
@@ -123,21 +124,33 @@ void orquery::exec(void)
       conn->terminateStatement(stmt);
     stmt = NULL;
   }
-  CATCH
+  catch(oracle::occi::SQLException& e)
+  { 
+    err = e.getErrorCode();
+    query = "";
+    throw sqliface::DBEXC(e.getMessage()); 
+  } 
 
   try 
   {
     stmt = conn->createStatement(query);
     (void)stmt->executeUpdate();
   }
-  CATCH
+  catch(oracle::occi::SQLException& e)
+  { 
+    err = e.getErrorCode();
+    query = "";
+    throw sqliface::DBEXC(e.getMessage()); 
+  } 
 
   query = "";
 }
 
 int orquery::error(void) const
 {
-  return 0;
+  if(err == 8177)
+    return SQL_DEADLOCK;
+  return err;
 }
 
 sqliface::results* orquery::result(void)
@@ -152,7 +165,12 @@ sqliface::results* orquery::result(void)
     stmt = conn->createStatement(query);
     res = stmt->executeQuery();
   }
-  CATCH
+  catch(oracle::occi::SQLException& e)
+  { 
+    err = e.getErrorCode();
+    query = "";
+    throw sqliface::DBEXC(e.getMessage());
+  } 
 
   if (res) 
   {
@@ -166,11 +184,11 @@ sqliface::results* orquery::result(void)
 }
 
 orresults::orresults(oracle::occi::ResultSet *res,
-		     oracle::occi::Statement *s,
-		     oracle::occi::Connection *c) : conn(c),
-						    stmt(s), 
-						    r(res), 
-						    value(true) 
+                     oracle::occi::Statement *s,
+                     oracle::occi::Connection *c) : conn(c),
+                                                    stmt(s), 
+                                                    r(res), 
+                                                    value(true) 
 {
   try 
   {

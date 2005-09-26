@@ -76,9 +76,60 @@
 	<!-- ==============================================
 		 Local private targets
 		 ============================================== -->
+
+	<condition property="do.autogen">
+	  <or>
+            <not>
+              <uptodate targetfile="configure">
+                <srcfiles dir="." includes="configure.* Makefile.am" />
+              </uptodate>
+            </not>
+            <equals arg1="${autogen}" arg2="true"/>
+          </or>
+        </condition>
+	
+	<target name="autogen" if="do.autogen"
+		description="">
+
+	  <!-- Call autotools autogen -->
+	  <exec executable="chmod" failonerror="${failonerror}" failifexecutionfails="${failonerror}">
+            <arg line="u+x autogen.sh" />
+	  </exec>
+	  <exec executable="autogen.sh" failonerror="${failonerror}" failifexecutionfails="${failonerror}" />
+
+	</target>
+
+	<condition property="do.configure">
+	  <or>
+            <not>
+              <uptodate targetfile="build/Makefile">
+                <srcfiles dir="." includes="configure" />
+              </uptodate>
+            </not>
+            <equals arg1="${configure}" arg2="true"/>
+          </or>
+        </condition>
+
+	<target name="configure" if="do.configure"
+		description="">
+          <if>
+            <isset property="configure.args"/>
+          <then>
+            <!-- Call configure-->
+            <configure dir="${module.build.dir}" args="${configure.args}" failonerror="${failonerror}"/>
+          </then>
+          <else>
+            <!-- Call configure-->
+            <configure dir="${module.build.dir}" failonerror="${failonerror}"/>
+          </else>
+          </if>
+
+	</target>
 	
 	<target name="localinit"
 		description="Module specific initialization tasks">
+		<antcall target="autogen" />
+		<antcall target="configure" />
 	</target>
 		
 	<target name="localcompile"

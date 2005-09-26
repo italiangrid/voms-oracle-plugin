@@ -70,10 +70,11 @@ private:
 
   orquery();
   orquery(orinterface&);
-  std::string query;
 
+  std::string query;
   oracle::occi::Connection * conn;
   oracle::occi::Statement * stmt;
+  int err;
 };
 
 class orinterface : public sqliface::interface 
