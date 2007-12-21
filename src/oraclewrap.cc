@@ -1,6 +1,7 @@
 /*********************************************************************
  *
  * Authors: Vincenzo Ciaschini - Vincenzo.Ciaschini@cnaf.infn.it 
+ *          Valerio Venturi - valerio.venturi@cnaf.infn.it
  *
  * Copyright (c) 2002, 2003, 2004, 2005 INFN-CNAF on behalf of the EU DataGrid.
  * For license conditions see LICENSE file or
@@ -12,286 +13,629 @@
  *
  *********************************************************************/
 
+extern "C" {
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <ctype.h>
+#include <errno.h>
+#include <signal.h>
+
+extern int errno;
+}
+
 #include <vector>
 #include <iostream>
+#include <string>
 
 #include "oraclewrap.h"
 
-#define CATCH \
-catch(oracle::occi::SQLException& e) \
-{ \
-  throw sqliface::DBEXC(e.getMessage()); \
-} \
-catch (...) \
-{ \
-  throw sqliface::DBEXC(); \
-} \
+
+static bool donesetup = false;
+
+static std::string port;
+
+static std::string dbcombine(const char * dbname, const char * hostname)
+{
+  return std::string(dbname) + (std::string(hostname) != "localhost" ? '.' + std::string("hostname") : "");
+}
 
 namespace bsq {
 
-orinterface::orinterface(const char *dbname,
-			 const char *hostname,
-			 const char *user,
-			 const char *password) : err(0)
+bool orinterface::isConnected()
 {
-  try 
-  {
-    env = oracle::occi::Environment::createEnvironment();
-    if (env)
-      conn = env->createConnection(std::string(user), 
-				   std::string(password),
-				   dbcombine(dbname, hostname));
-  }
-  CATCH
+  return connected;
 }
 
-orinterface::orinterface() : env(NULL), 
-                             conn(NULL), 
-                             err(0) {}
+bool orinterface::setOption(int option, void *value)
+{
+  if (handle.empty()) {
+    setError(ERR_NO_SESSION, "Session must be established before attempting operations");
+    return false;
+  }
+  int counter = 0;
+  bool error = false;
+
+  if (!isConnected())
+    return false;
+
+  std::string message;
+  char number[11];
+
+  sprintf(number, "%09d", option);
+
+  switch(option) {
+  case OPTION_SET_SOCKET:
+  case OPTION_SET_PORT:
+    return true;
+    break;
+  case OPTION_SET_INSECURE:
+    message += std::string(number);
+    insecure = value;
+    sprintf(number, "%09d", *((bool*)value) ? "1" : "0");
+    message += std::string(number);
+    break;
+  default:
+    return true;
+    break;
+  }
+  // If execution arrives here, a request has been formatted.
+
+  int sock = setup_connection();
+  if (sock == -1)
+    return false;
+  message = std::string("O") + handle + message;
+
+  if (!write_wrap(sock, message)) {
+    ::close(sock);
+    return false;
+  }
+  std::string msg;
+  bool read_success = read_wrap(sock, msg);
+  ::close(sock);
+
+  if (read_success) {
+    if (isdigit((msg.data()[0]))) {
+      char code[6];
+      code[0] = (msg.data())[0];
+      code[1] = (msg.data())[1];
+      code[2] = (msg.data())[2];
+      code[3] = (msg.data())[3];
+      code[4] = (msg.data())[4];
+      code[5] = '\0';
+      err = atoi(code);
+      std::string s = std::string(msg, 5);
+      setError(ERR_DBERR, "middleman cannot fetch result : " +s);
+      return false;
+    }
+  }
+  else {
+    /* Error message already set by read_wrap() */
+    return false;
+  }
+  if (msg.size() < 2) {
+    setError(ERR_DBERR, "Unknown error from middleman");
+    return false;
+  }
+
+  /* no Error */
+  return true; 
+}
+
+char *orinterface::errorMessage()
+{
+  return (char*)errorString.c_str();
+}
+
+bool orinterface::read_wrap(int sock, std::string& msg)
+{
+  int size;
+  if (read(sock, &size, sizeof(size)) != sizeof(size)) {
+    setError(ERR_NO_DB, "Cannot read data from middleman : " + std::string(strerror(errno)));
+    return false;
+  }
+
+  char * buffer = (char *)malloc(size);
+  if (read(sock, buffer, size) != size) {
+    free(buffer);
+    setError(ERR_NO_DB, "Cannot read data from middleman : " + std::string(strerror(errno)));
+    return false;
+  }
+
+  msg = std::string(buffer, size);
+  free(buffer);
+  return true;
+}
+
+bool orinterface::write_wrap(int sock, const std::string& msg)
+{
+  int size = msg.size();
+  if (write(sock, &size, sizeof(size)) == -1) {
+    setError("Cannot write data to middleman : " + std::string(strerror(errno)));
+    return false;
+  }
+
+  if (write(sock, msg.data(), size) == -1) {
+    setError("Cannot write data to middleman : " + std::string(strerror(errno)));
+    return false;
+  }
+  return true;
+}
+
+int orinterface::setup_connection()
+{
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+  if(sock == -1) {
+    setError("Cannot connect to middleman : " + std::string(strerror(errno)));
+    return -1;
+  }
+  
+  struct sockaddr_in peeraddr_in;
+
+  memset((char *)&peeraddr_in, 0, sizeof(peeraddr_in));
+  peeraddr_in.sin_family = AF_INET;
+  peeraddr_in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  peeraddr_in.sin_port=htons(atoi(port.c_str()));
+  
+  if (0 == ::connect(sock, 
+                     (struct sockaddr*)&peeraddr_in,
+                     sizeof(peeraddr_in))) {
+    return sock;
+  }
+  else {
+    ::close(sock);
+    setError("Cannot connect to middleman : " + std::string(strerror(errno)));
+    return -1;
+  }
+}
+
+void orinterface::setError(const std::string &message)
+{
+  err = ERR_DBERR;
+  errorString = message;
+}
+
+void orinterface::setError(int err, const std::string &message)
+{
+  this->err = err;
+  errorString = message;
+}
+
+bool orinterface::initialize_conn(const char *dbname,
+                                  const char *hostname,
+                                  const char *user,
+                                  const char *password)
+{
+  int sock = -1;
+
+  if (!donesetup) {
+    donesetup = true;
+
+    /* create the socket that will be used by middleman */
+
+    struct sockaddr_in myaddr_in;
+    memset((char *)&myaddr_in, 0, sizeof(myaddr_in));
+    myaddr_in.sin_family = AF_INET;
+    myaddr_in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    myaddr_in.sin_port = htons(0);
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1) {
+      setError("Cannot start middleman : " + std::string(strerror(errno)));
+      return false;
+    }
+    
+    unsigned int value = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&value, sizeof(socklen_t));
+  
+    int result = bind(sock, (struct sockaddr *)&myaddr_in, sizeof(struct sockaddr_in));
+    if (result == -1) {
+      setError("Cannot start middleman : " + std::string(strerror(errno)));
+      goto err;
+    }
+
+    int size = sizeof(myaddr_in);
+    memset((char *)&myaddr_in, 0, sizeof(myaddr_in));
+    if (getsockname(sock, (sockaddr*)(&myaddr_in), (socklen_t*)(&size)) == -1) {
+      setError("Cannot start middleman : " + std::string(strerror(errno)));
+      goto err;
+    }
+
+    unsigned int portnum = ntohs(myaddr_in.sin_port);
+    char buffer[100];
+    sprintf(buffer, "%u", portnum);
+    port = std::string(buffer);
+
+    sprintf(buffer, "%u", sock);
+    std::string socknum = std::string(buffer);
+
+
+    /* forks */
+    pid_t pid = fork();
+    middlemanpid = pid;
+    /* child runs middleman */
+    if (!pid) {
+      std::string procname = "middleman" + std::string(dbname);
+      int val = execlp("middleman", procname.c_str(), buffer, 
+                       dbcombine(dbname, hostname).c_str(), user, NULL);
+      setError("Cannot run middleman : " + std::string(strerror(errno)));
+      goto err;
+    }
+    /* father wait the middleman to be up then send the password and listen for
+       an eventual error message */
+    else {
+      ::close(sock);
+      sock = -1;
+      sleep(5);
+      
+      sock = setup_connection();
+      
+      if (sock == -1)
+        return false;
+
+      send(sock, password, strlen(password), 0);
+      std::string msg;
+      bool read_success = read_wrap(sock, msg);
+      ::close(sock);
+      sock = -1;
+
+      if (!read_success)
+        goto err;
+
+      if (msg != "A") {
+        std::string s = std::string(msg, 5);
+        setError("Cannot start middleman : " + s);
+        goto err;
+      }
+      return true;
+    }
+  }
+  return true;
+
+ err:
+  if (sock != -1)
+    ::close(sock);
+  return false;
+
+}
+
+std::string orinterface::make_conn(const char *dbname,
+                                   const char *hostname,
+                                   const char *user,
+                                   const char *password,
+                                   int *err)
+{
+  int sock = setup_connection();
+
+  if (sock == -1)
+    return "";
+
+  if (!write_wrap(sock, "C")) {
+    ::close(sock);
+    return "";
+  }
+  std::string msg;
+  bool read_success = read_wrap(sock, msg);
+  ::close(sock);
+
+  if (!read_success)
+    return "";
+
+  if((msg.data())[0] != 'H') { 
+    char code[6];
+    code[0] = (msg.data())[0];
+    code[1] = (msg.data())[1];
+    code[2] = (msg.data())[2];
+    code[3] = (msg.data())[3];
+    code[4] = (msg.data())[4];
+    code[5] = '\0';
+    *err = atoi(code);
+    std::string s = std::string(msg, 5);
+    setError("middleman cannot make connection : " + s);
+    return "";
+  }
+
+  std::string value = std::string(msg, 1);
+  return value;
+}
+
+orinterface::orinterface() : err(0), handle(""), dbVersion(-1), errorString(""),
+                             dbname(NULL), hostname(NULL), user(NULL),
+                             password(NULL), connected(false), insecure(false),
+                             middlemanpid(-1)
+{}
 
 int orinterface::error(void) const
 {
   return err; 
 }
 
-void orinterface::connect(const char *dbname, 
-			  const char *hostname, 
-			  const char *user, 
-			  const char *password)
+bool orinterface::connect(const char *dbname, 
+                          const char *hostname, 
+                          const char *user, 
+                          const char *password)
 {
-  try 
-  {
-    env = oracle::occi::Environment::createEnvironment();
-    if (env)
-      conn = env->createConnection(std::string(user), 
-				   std::string(password),
-				   dbcombine(dbname, hostname));
+
+  if (!donesetup) {
+    this->dbname = strdup(dbname);
+    this->hostname = strdup(hostname);
+    this->user = strdup(user);
+    this->password = password;
+
+    if (!this->dbname || !this->hostname || !this->user) {
+      free(this->dbname);
+      free(this->hostname);
+      free(this->user);
+      setError("No memory!");
+      return false;
+    }
+
+    return (connected = initialize_conn(dbname, hostname, user, password));
   }
-  CATCH
+  return true;
 }
 
-std::string orinterface::dbcombine(const char * dbname, 
-				   const char * hostname)
+sqliface::interface *orinterface::getSession()
 {
-  return std::string(dbname) + (std::string(hostname) != "localhost" ? '.' + std::string("hostname") : "");
+  orinterface *o = new orinterface();
+  o->dbname = dbname;
+  o->hostname = hostname;
+  o->user = user;
+  o->password = password;
+  o->connected = connected;
+
+  o->handle = o->make_conn(o->dbname, o->hostname, o->user, 
+                           o->password, &(o->err));
+
+  if (o->handle.empty()) {
+    delete o;
+    return NULL;
+  }
+  return o;
+}
+
+void orinterface::releaseSession(interface *o)
+{
+  o->close();
+  delete o;
+}
+
+bool orinterface::reconnect()
+{
+  close();
+  if (!donesetup)
+    if (initialize_conn(dbname, hostname, user, password)) {
+      handle = make_conn(dbname, hostname, user, password, &err);
+      if (handle.empty())
+        return false;
+      return true;
+    }
+
+  return false;
+}
+
+void orinterface::close() 
+{
+  if (!handle.empty()) {
+    int sock = setup_connection();
+    if (sock != -1)
+      write_wrap(sock, std::string("D") + handle);
+    ::close(sock);
+    sleep(10);
+    if (middlemanpid != -1)
+      kill(middlemanpid, 9);
+    middlemanpid = -1;
+  }
+  donesetup = false;
 }
 
 orinterface::~orinterface()
 {
-  if(conn)
-    env->terminateConnection(conn);
-  if(env)
-    oracle::occi::Environment::terminateEnvironment(env);
+  close();
 }
 
-sqliface::query *orinterface::newquery()
+bool orinterface::operation(int operation_type, void *result, ...)
 {
-  return new orquery(*this);
-}
-
-orquery::orquery(bsq::orinterface &face) : conn(face.conn), 
-                                           stmt(NULL), 
-                                           query(""),
-                                           err(0) {}
-
-orquery::~orquery(void) 
-{
-  try 
-  {
-    if (stmt)
-      conn->terminateStatement(stmt);
+  if (handle.empty()) {
+    setError(ERR_NO_SESSION, "Session must be established before attempting operations");
+    return false;
   }
-  CATCH
-}
 
-sqliface::query &orquery::operator<<(std::string s)
-{
-  std::string tmp = query + s;
-  
-  int pos = tmp.find_last_of('\n');
-  if (pos == -1)
-    pos = 0;
+  va_list va;
+  va_start(va, result);
 
-  query = tmp.substr(pos, tmp.size() - pos);
-  return *this;
-}
+  int counter = 0;
+  bool error = false;
 
-void orquery::exec(void)
-{
-  try 
-  {
-    if(stmt)
-      conn->terminateStatement(stmt);
-    stmt = NULL;
-  }
-  catch(oracle::occi::SQLException& e)
-  { 
-    err = e.getErrorCode();
-    query = "";
-    throw sqliface::DBEXC(e.getMessage()); 
-  } 
+  if (!result || !isConnected())
+    return false;
 
-  try 
-  {
-    stmt = conn->createStatement(query);
-    (void)stmt->executeUpdate();
-  }
-  catch(oracle::occi::SQLException& e)
-  { 
-    err = e.getErrorCode();
-    query = "";
-    throw sqliface::DBEXC(e.getMessage()); 
-  } 
+  std::vector<std::string> *fqans = ((std::vector<std::string> *)result);
+  std::vector<gattrib> *attrs = ((std::vector<gattrib> *)result);
+  signed long int uid = -1;
+  char *group = NULL;
+  char *role = NULL;
+  X509 *cert = NULL;
 
-  query = "";
-}
+  /* Builds message */
+  std::string message;
 
-int orquery::error(void) const
-{
-  if(err == 8177)
-    return SQL_DEADLOCK;
-  return err;
-}
+  char number[11];
 
-sqliface::results* orquery::result(void)
-{
-  if(stmt)
-    conn->terminateStatement(stmt);
+  /* Encode operation_type */
+  sprintf(number, "%03d\0", operation_type);
+  message += std::string(number);
 
-  oracle::occi::ResultSet *res;
+  switch (operation_type) {
+  case OPERATION_GET_GROUPS_AND_ROLE:
+  case OPERATION_GET_GROUPS_AND_ROLE_ATTRIBS:
+    uid = va_arg(va, signed long int);
+    group = va_arg(va, char *);
+    role = va_arg(va, char *);
+    if (uid == -1 || !group || !role)
+      error = true;
+    else {
+      sprintf(number, "%09d", uid);
+      message += std::string(number);
+      sprintf(number, "%09d", strlen(group));
+      message += std::string(number) + group;
+      sprintf(number, "%09d", strlen(role));
+      message += std::string(number) + role;
+    }
+    break;
 
-  try 
-  {
-    stmt = conn->createStatement(query);
-    res = stmt->executeQuery();
-  }
-  catch(oracle::occi::SQLException& e)
-  { 
-    err = e.getErrorCode();
-    query = "";
-    throw sqliface::DBEXC(e.getMessage());
-  } 
+  case OPERATION_GET_ROLE:
+  case OPERATION_GET_ROLE_ATTRIBS:
+    uid = va_arg(va, signed long int);
+    role = va_arg(va, char *);
+    if (uid == -1 || !role)
+      error = true;
+    else {
+      sprintf(number, "%09d", uid);
+      message += std::string(number);
+      sprintf(number, "%09d", strlen(role));
+      message += std::string(number) + role;
+    }
+    break;
 
-  if (res) 
-  {
-    bsq::orresults * o = new bsq::orresults(res, stmt, conn);
-    if (o)
-      stmt = NULL;
-    return o;
-  }
-  else
-    return NULL;
-}
+  case OPERATION_GET_GROUPS:
+  case OPERATION_GET_ALL:
+  case OPERATION_GET_GROUPS_ATTRIBS:
+  case OPERATION_GET_ALL_ATTRIBS:
+    uid = va_arg(va, signed long int);
+    if (uid == -1)
+      error = true;
+    else {
+      sprintf(number, "%09d", uid);
+      message += std::string(number);
+    }
+    break;
 
-orresults::orresults(oracle::occi::ResultSet *res,
-                     oracle::occi::Statement *s,
-                     oracle::occi::Connection *c) : conn(c),
-                                                    stmt(s), 
-                                                    r(res), 
-                                                    value(true) 
-{
-  try 
-  {
-    if (r->next() == oracle::occi::ResultSet::END_OF_FETCH)
-      value = false;
-  }
-  CATCH
-}
+  case OPERATION_GET_VERSION:
+    break;
 
-bool orresults::next() 
-{
-  try 
-  {
-    if (r->next() == oracle::occi::ResultSet::END_OF_FETCH)
-      value = false;
-    return value;
-  }
-  CATCH
-}
-
-const std::string orresults::get(int i) const 
-{
-  try 
-  {
-    return r->getString(i);
-  }
-  CATCH
-}
-
-const std::string orresults::get(const std::string& s) const
-{
-  try
-  {
-    int current = 1;
-    int index = -1;
-
-    std::vector<oracle::occi::MetaData> md = r->getColumnListMetaData();
-    for(std::vector<oracle::occi::MetaData>::iterator i = md.begin(); i != md.end(); ++i, ++current) 
-    {
-      if (i->getString(oracle::occi::MetaData::ATTR_NAME) == s)
-      {
-	index = current;
-	break;
+  case OPERATION_GET_USER:
+    cert = va_arg(va, X509 *);
+    if (!cert)
+      error = true;
+    else {
+      int size = i2d_X509(cert, NULL);
+      unsigned char *buffer = (unsigned char *)malloc(size);
+      unsigned char *savebuffer = buffer;
+      if (!buffer)
+        error = true;
+      else {
+        (void)i2d_X509(cert, &buffer);
+        sprintf(number, "%09d", size);
+        message += std::string(number) + std::string((const char *)savebuffer, size);
+        free(savebuffer);
       }
     }
-    if (index != -1)
-      return r->getString(index);
-    else
-      throw sqliface::DBEXC("column '" + s + "' not found!");
+    break;
+
+  default:
+    error = true;
   }
-  CATCH
-}
 
-const std::string orresults::name(int i) const
-{
-  try 
-  {
-    std::vector<oracle::occi::MetaData> md = r->getColumnListMetaData();
-    return md[i].getString(oracle::occi::MetaData::ATTR_NAME);
+  if (error) {
+    setError(ERR_NO_PARAM, "Error in parsing arguments!");
+    return false;
   }
-  CATCH
-}
-
-orresults::~orresults() 
-{
-  try 
-  {
-    if(r)
-      stmt->closeResultSet(r);
-
-    if(stmt)
-      conn->terminateStatement(stmt);
-    stmt = NULL;
     
-  } 
-  CATCH
-}
+  int sock = setup_connection();
+  if (sock == -1)
+    return false;
 
-int orresults::size() const
-{
-  try 
-  {
-    std::vector<oracle::occi::MetaData> md = r->getColumnListMetaData();
-    std::vector<oracle::occi::MetaData>::iterator cur = md.begin(),
-                                                  end = md.end();
-    int i = 0;
+  std::string sendmsg = std::string("Q") + handle + message;
 
-    while (cur != end) 
-    {
-      i++;
-      cur++;
-    }
-    return i;
+  if (!write_wrap(sock, sendmsg)) {
+    ::close(sock);
+    return false;
   }
-  CATCH
+  std::string msg;
+  bool read_success = read_wrap(sock, msg);
+  ::close(sock);
+
+  if (!read_success)
+    return false;
+
+  if (isdigit((msg.data()[0]))) {
+    char code[6];
+    code[0] = (msg.data())[0];
+    code[1] = (msg.data())[1];
+    code[2] = (msg.data())[2];
+    code[3] = (msg.data())[3];
+    code[4] = (msg.data())[4];
+    code[5] = '\0';
+    err = atoi(code);
+    std::string s = std::string(msg, 5);
+    setError(ERR_DBERR, "middleman cannot fetch result : " +s);
+    return false;
+  }
+
+  if (msg.size() < 2) {
+    setError(ERR_DBERR, "Unknown error from middleman");
+    return false;
+  }
+
+  std::string::size_type pos1 = std::string::npos;
+  std::string::size_type pos2 = std::string::npos;
+  std::string::size_type pos3 = std::string::npos;
+
+  msg =msg.substr(1);
+
+  /* Parse answer: */
+  switch (operation_type) {
+  case OPERATION_GET_VERSION:
+    /* answer is an integer */
+    *((int*)result) = atoi(msg.c_str());
+    break;
+  case OPERATION_GET_USER:
+    /* answer is a signed long int */
+    *((signed long int *)result) = atoi(msg.c_str());
+    break;
+
+  case OPERATION_GET_ROLE:
+  case OPERATION_GET_GROUPS:
+  case OPERATION_GET_ALL:
+  case OPERATION_GET_GROUPS_AND_ROLE:
+    /* answer is a sequence of FQANs */
+    pos1 = msg.find('\1');
+    while (pos1 != std::string::npos) {
+      fqans->push_back(msg.substr(0, pos1));
+      msg = msg.substr(pos1+1);
+      pos1 = msg.find('\1');
+    }
+    break;
+
+  case OPERATION_GET_ROLE_ATTRIBS:
+  case OPERATION_GET_GROUPS_ATTRIBS:
+  case OPERATION_GET_ALL_ATTRIBS:
+  case OPERATION_GET_GROUPS_AND_ROLE_ATTRIBS:
+    /* answer is a sequence of Attributes */
+    pos1 = msg.find('\1');
+    pos2 = msg.find('\1', pos1+1);
+    pos3 = msg.find('\1', pos2+1);
+    while (pos1 != std::string::npos && pos2 != std::string::npos &&
+           pos3 != std::string::npos) {
+      gattrib ga;
+      ga.name  = msg.substr(0, pos1);
+      ga.value = msg.substr(pos1+1, pos2-pos1);
+      ga.qualifier  = msg.substr(pos2+1, pos3-pos2);
+      attrs->push_back(ga);
+      msg = msg.substr(pos3+1);
+      pos1 = msg.find('\1');
+      pos2 = msg.find('\1', pos1+1);
+      pos3 = msg.find('\1', pos2+1);
+    }
+    break;
+  }
+  return true;
 }
 
-bool orresults::valid() const
-{
-  return value;
-}
-     
-}
+} // namespace bsq
 
 extern "C" {
 sqliface::interface *CreateDB()
@@ -299,4 +643,13 @@ sqliface::interface *CreateDB()
   return new bsq::orinterface();
 }
 
+int getDBInterfaceVersion()
+{
+  return 3;
+}
+
+int getDBInterfaceVersionMinor()
+{
+  return 1;
+}
 }

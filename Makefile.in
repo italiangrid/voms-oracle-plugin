@@ -35,16 +35,17 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-DIST_COMMON = $(am__configure_deps) $(srcdir)/Makefile.am \
+DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/configure \
 	$(top_srcdir)/src/autogen/config.h.in ./project/config.guess \
 	./project/config.sub ./project/depcomp ./project/install-sh \
-	./project/ltmain.sh ./project/missing
+	./project/ltmain.sh ./project/missing AUTHORS ChangeLog NEWS
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/project/glite.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/project/acinclude.m4 \
+	$(top_srcdir)/project/glite.m4 \
 	$(top_srcdir)/project/oracle-instantclient.m4 \
-	$(top_srcdir)/acinclude.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -62,7 +63,6 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	uninstall-recursive
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -101,6 +101,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_GLITE_FALSE = @ENABLE_GLITE_FALSE@
+ENABLE_GLITE_TRUE = @ENABLE_GLITE_TRUE@
 EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
@@ -135,6 +137,7 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -183,8 +186,19 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+DIST_SUBDIRS = config src
 SUBDIRS = config src
-ACLOCAL_AMFLAGS = -I project
+EXTRA_DIST = \
+	build.xml \
+	autogen.sh \
+	LICENSE \
+	project/build.number \
+	project/build.properties \
+	project/configure.properties.xml \
+	project/properties.xml \
+	project/version.properties \
+	project/runtime.dependencies
+
 all: all-recursive
 
 .SUFFIXES:
@@ -328,7 +342,6 @@ ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	  $(AWK) '    { files[$$0] = 1; } \
 	       END { for (i in files) print i; }'`; \
 	mkid -fID $$unique
-tags: TAGS
 
 TAGS: tags-recursive $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
@@ -622,10 +635,11 @@ uninstall-info: uninstall-info-recursive
 
 stage:
 	@set fnord $(MAKEFLAGS); amf=$$2; \
-	dot_seen=no; \
+        dot_seen=no; \
         target="install"; \
 	prefix_arg=@prefix@; \
-        list='$(SUBDIRS)'; for subdir in $$list; do \
+        list='$(SUBDIRS)'; \
+	for subdir in $$list; do \
           echo "Making $$target $$prefix_arg in $$subdir"; \
           if test "$$subdir" = "."; then \
             dot_seen=yes; \
@@ -636,8 +650,8 @@ stage:
           (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target $$prefix_arg) \
            || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
         done; \
-        if test "$$dot_seen" = "no"; then \
-          $(MAKE) $(AM_MAKEFLAGS) "$$target-am" $$prefix_arg || exit 1; \
+	if test "$$dot_seen" = "no"; then \
+	  $(MAKE) $(AM_MAKEFLAGS) "$$target-am" $$prefix_arg || exit 1; \
         fi; test -z "$$fail"
 
 distsrc: dist
@@ -667,6 +681,12 @@ distbin:
 	$(AMTAR) -zcf $(DISTTAR)/$(distdir)_bin.tar.gz .; \
 	popd; \
 	rm -rf $$tmpdistbin
+
+testsuite-run:
+	cd test; $(MAKE) testsuite-run; cd ..
+
+tags:
+	rm -f TAGS; find . '(' '(' -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' -o -name '*.cc' ')' -a -not -path '*/test/*' ')' -exec etags -a '{}' ';'
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

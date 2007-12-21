@@ -12,93 +12,64 @@
  *
  *********************************************************************/
 
+extern "C" {
+#include <sys/types.h>
+#include <unistd.h>
+}
+
 #include "dbwrap.h"
-#include <occi.h>
+#include <vector>
+#include <string>
+
 
 namespace bsq {
 
 class orinterface;
-class orquery;
-
-class orresults : public sqliface::results 
-{
-
- public:
-
-  friend class orquery;
-  ~orresults();
-  const std::string get(int) const;
-  const std::string get(const std::string&) const;
-  bool valid() const;
-  bool next();
-  const std::string name(int) const;
-  int size() const;
-
- private:
-
-  orresults();
-  orresults(const orresults &);
-  orresults(oracle::occi::ResultSet *, 
-	    oracle::occi::Statement *,
-	    oracle::occi::Connection *);
-  
-  oracle::occi::Connection * conn;
-  oracle::occi::Statement * stmt;
-  oracle::occi::ResultSet * r;
-  bool value;
-};
-
-
-class orquery : public sqliface::query 
-{
-
- public:
-
-  friend class oriterator;
-  friend class orinterface;
-  orquery(const orquery &);
-  ~orquery();
-
-  sqliface::query &operator<<(std::string);
-
-  sqliface::results* result(void);
-
-  void exec(void);
-  int  error(void) const;
-
-private:
-
-  orquery();
-  orquery(orinterface&);
-
-  std::string query;
-  oracle::occi::Connection * conn;
-  oracle::occi::Statement * stmt;
-  int err;
-};
 
 class orinterface : public sqliface::interface 
 {
-  friend class orquery;
- 
  public:
   
   orinterface();
-  orinterface(const char *, const char *, const char *, const char *);
-  ~orinterface(void);
-  
+  ~orinterface();
   int error(void) const;
-  void connect(const char *, const char *, const char *, const char *);
-  sqliface::query *newquery();
- 
+  bool connect(const char *, const char *, const char *, const char *);
+  bool reconnect();
+  void close(void);
+  bool setOption(int option, void *value);
+
+  bool operation(int operation_type, void *result, ...);
+
+  bool isConnected(void);
+  char *errorMessage(void);
+
+  interface *getSession();
+  void releaseSession(interface *);
+
  private:
   
   orinterface(const orinterface &);
-  std::string dbcombine(const char *, const char *);
-  oracle::occi::Environment *env;
-  oracle::occi::Connection *conn;
-  int err;
 
+  bool read_wrap(int, std::string&);
+  bool write_wrap(int, const std::string&);
+  int setup_connection();
+  void setError(const std::string &);
+  void setError(int, const std::string &);
+  bool initialize_conn(const char *, const char *, const char *, const char *);
+  std::string make_conn(const char *, const char *, const char *, const char *,
+                        int *);
+
+  int   err;
+  std::string handle;
+  int   dbVersion;
+  std::string errorString;
+  char *dbname;
+  char *hostname;
+  char *user;
+  const char *password;
+  bool connected;
+  bool insecure;
+  pid_t middlemanpid;
 };
 
 } // namespace bsq
