@@ -1121,7 +1121,11 @@ void SessionFactory::Destroy()
 
 SessionFactory::~SessionFactory()
 {
-  Destroy();
+  try {
+    Destroy();
+  }
+  catch (...) {
+  }
 }
 
 int SessionFactory::CreateSession()

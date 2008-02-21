@@ -423,7 +423,6 @@ void orinterface::close()
     if (sock != -1)
       write_wrap(sock, std::string("D") + handle);
     ::close(sock);
-    sleep(10);
     if (middlemanpid != -1)
       kill(middlemanpid, 9);
     middlemanpid = -1;
