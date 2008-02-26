@@ -421,12 +421,14 @@ void do_query(int sock, const std::string& handle, const std::string& query)
     {
       signed long uid = atoi(real.substr(0,9).c_str());
       int grouplen = atoi(real.substr(9,9).c_str());
-      const char *group = real.substr(18, grouplen).c_str();
+      char *group = strdup(real.substr(18, grouplen).c_str());
       int rolelen = atoi(real.substr(18+grouplen, 9).c_str());
-      const char *role = real.substr(18+grouplen+9, rolelen).c_str();
+      char *role = strdup(real.substr(18+grouplen+9, rolelen).c_str());
       std::vector<std::string> fqans;
 
       if (session.operationGetGroupsAndRole(uid, fqans, group, role)) {
+        free(group);
+        free(role);
         std::string result = "";
         for (std::vector<std::string>::iterator i = fqans.begin();
              i != fqans.end(); i++)
@@ -434,6 +436,8 @@ void do_query(int sock, const std::string& handle, const std::string& query)
         do_send(sock, "H"+result);
         return;
       }
+      free(group);
+      free(role);
       do_send(sock, session.getError());
     }
     break;

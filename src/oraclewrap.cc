@@ -32,6 +32,18 @@ extern int errno;
 
 #include "oraclewrap.h"
 
+static bool operator==(const gattrib &lhs, 
+                const gattrib &rhs)
+{
+  return ((lhs.name == rhs.name) && (lhs.qualifier == rhs.qualifier) &&
+          (lhs.value == rhs.value));
+}
+
+static bool operator<(const gattrib &lhs,
+               const gattrib &rhs)
+{
+  return lhs.str() < rhs.str();
+}
 
 static bool donesetup = false;
 
@@ -629,6 +641,12 @@ bool orinterface::operation(int operation_type, void *result, ...)
       pos2 = msg.find('\1', pos1+1);
       pos3 = msg.find('\1', pos2+1);
     }
+
+    /* Remove duplicates */
+    std::sort(attrs->begin(), attrs->end());
+    attrs->erase(std::unique(attrs->begin(), attrs->end()), 
+                 attrs->end());
+
     break;
   }
   return true;
