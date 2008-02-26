@@ -583,7 +583,7 @@ bool Session::operationGetAllAttribs(signed long int uid, std::vector<gattrib> &
 
 bool Session::operationGetGroups(signed long int uid, std::vector<std::string> &fqans)
 {
-  char *query = "SELECT groups.dn, role FROM groups, m "
+  char *query = "SELECT groups.dn, NULL FROM groups, m "
     "LEFT JOIN roles ON roles.rid = m.rid "
     "WHERE groups.gid = m.gid AND "
     "m.userid = :1";
@@ -750,7 +750,7 @@ bool Session::getFQANs(char *query, int numparams, binder *binders, std::vector<
       
       // NULL values
       std::string fqan = std::string((char *)(buffer[1])) + 
-        ((indicator[1] == -1 || strlen((char*)(buffer[2])) == 0) ?
+        ((indicator[2] == -1 || strlen((char*)(buffer[2])) == 0) ?
          "" :
          "/Role=" + std::string((char *)(buffer[2])));
 

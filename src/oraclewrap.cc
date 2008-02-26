@@ -621,8 +621,8 @@ bool orinterface::operation(int operation_type, void *result, ...)
            pos3 != std::string::npos) {
       gattrib ga;
       ga.name  = msg.substr(0, pos1);
-      ga.value = msg.substr(pos1+1, pos2-pos1);
-      ga.qualifier  = msg.substr(pos2+1, pos3-pos2);
+      ga.value = msg.substr(pos1+1, pos2-pos1-1);
+      ga.qualifier  = msg.substr(pos2+1, pos3-pos2-1);
       attrs->push_back(ga);
       msg = msg.substr(pos3+1);
       pos1 = msg.find('\1');
