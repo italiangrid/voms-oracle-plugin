@@ -771,8 +771,10 @@ bool Session::getFQANs(char *query, int numparams, binder *binders, std::vector<
                    0,
                    OCI_DEFAULT);
   }
-  else
+  else {
     setError(true);
+    return false;
+  }
 
   if (res == OCI_NO_DATA)
     return true;
