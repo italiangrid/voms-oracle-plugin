@@ -672,7 +672,7 @@ bool Session::bindParameters(void *h, OCIStmt *stmt, int numParams, binder *bind
 bool Session::getFQANs(char *query, int numparams, binder *binders, std::vector<std::string> &fqans)
 {
   OCIStmt *stmt = NULL;
-  
+
   void *h = CreateBlocks();
   if (!h)
     return false;
@@ -775,6 +775,9 @@ bool Session::getFQANs(char *query, int numparams, binder *binders, std::vector<
     setError(true);
     return false;
   }
+
+  if (fqans.size() == 0)
+    return false;
 
   if (res == OCI_NO_DATA)
     return true;
