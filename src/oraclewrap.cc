@@ -22,6 +22,7 @@ extern "C" {
 #include <ctype.h>
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 
 extern int errno;
 }
@@ -29,6 +30,7 @@ extern int errno;
 #include <vector>
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 #include "oraclewrap.h"
 
@@ -165,12 +167,12 @@ bool orinterface::write_wrap(int sock, const std::string& msg)
 {
   int size = msg.size();
   if (write(sock, &size, sizeof(size)) == -1) {
-    setError("Cannot write data to middleman : " + std::string(strerror(errno)));
+    setError(ERR_NO_DB, "Cannot write data to middleman : " + std::string(strerror(errno)));
     return false;
   }
 
   if (write(sock, msg.data(), size) == -1) {
-    setError("Cannot write data to middleman : " + std::string(strerror(errno)));
+    setError(ERR_NO_DB, "Cannot write data to middleman : " + std::string(strerror(errno)));
     return false;
   }
   return true;

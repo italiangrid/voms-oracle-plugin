@@ -61,7 +61,7 @@ Session::~Session()
 }
   
 
-bool Session::execute_query(void *h, OCIStmt **stmt_out, char *query, int numParams, binder *binders)
+bool Session::execute_query(void *h, OCIStmt **stmt_out, const char *query, int numParams, binder *binders)
 {
   OCIStmt *stmt = NULL;
   //  sword res;
@@ -154,7 +154,7 @@ void Session::setError(bool oracle, std::string message, OCIStmt *stmt)
 
 bool Session::operationGetDBVersion(int *ver)
 {
-  char *query = "SELECT version FROM version";
+  const char *query = "SELECT version FROM version";
   bool result = false;
 
   OCIStmt *stmt = NULL;
@@ -410,7 +410,7 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
 
 bool Session::operationGetAll(signed long int uid, std::vector<std::string>& fqans)
 {
-  char *query = "SELECT groups.dn, role FROM groups, m "
+  const char *query = "SELECT groups.dn, role FROM groups, m "
     "LEFT JOIN roles ON roles.rid = m.rid "
     "WHERE groups.gid = m.gid AND "
     "m.userid = :1";
@@ -429,12 +429,12 @@ bool Session::operationGetGroupAndRoleAttribs(signed long int uid, char *group,
                                               char *role, 
                                               std::vector<gattrib> &attrs)
 {
-  char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
+  const char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
     "FROM attributes, usr_attrs "
     "WHERE attributes.a_id = usr_attrs.a_id AND "
     "usr_attrs.u_id = :1";
 
-  char *query2 = "SELECT attributes.a_name, group_attrs.a_value, groups.dn, NULL "
+  const char *query2 = "SELECT attributes.a_name, group_attrs.a_value, groups.dn, NULL "
     "FROM attributes, group_attrs, groups, m "
     "WHERE attributes.a_id = group_attrs.a_id AND "
     "groups.gid = m.gid AND "
@@ -442,7 +442,7 @@ bool Session::operationGetGroupAndRoleAttribs(signed long int uid, char *group,
     "m.rid is NULL AND "
     "group_attrs.g_id = m.gid";
 
-  char *query3 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
+  const char *query3 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
     "FROM attributes, role_attrs, groups, roles, m "
     "WHERE attributes.a_id = role_attrs.a_id AND "
     "groups.gid = m.gid AND "
@@ -475,12 +475,12 @@ bool Session::operationGetGroupAndRoleAttribs(signed long int uid, char *group,
 
 bool Session::operationGetGroupAttribs(signed long int uid, std::vector<gattrib> &attrs)
 {
-  char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
+  const char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
     "FROM attributes, usr_attrs "
     "WHERE attributes.a_id = usr_attrs.a_id AND "
     "usr_attrs.u_id = :1";
 
-  char *query2 = "SELECT attributes.a_name, group_attrs.a_value, groups.dn, NULL "
+  const char *query2 = "SELECT attributes.a_name, group_attrs.a_value, groups.dn, NULL "
     "FROM attributes, group_attrs, groups, m "
     "WHERE attributes.a_id = group_attrs.a_id AND "
     "groups.gid = m.gid AND "
@@ -503,12 +503,12 @@ bool Session::operationGetGroupAttribs(signed long int uid, std::vector<gattrib>
 bool Session::operationGetRoleAttribs(signed long int uid, const char *role,
                                       std::vector<gattrib> &attrs)
 {
-  char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
+  const char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
     "FROM attributes, usr_attrs "
     "WHERE attributes.a_id = usr_attrs.a_id AND "
     "usr_attrs.u_id = :1";
 
-  char *query2 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
+  const char *query2 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
     "FROM attributes, role_attrs, roles, groups, m "
     "WHERE m.gid = groups.gid AND "
     "roles.rid = m.rid AND "
@@ -547,12 +547,12 @@ bool Session::operationGetRoleAttribs(signed long int uid, const char *role,
 
 bool Session::operationGetAllAttribs(signed long int uid, std::vector<gattrib> &attrs)
 {
-  char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
+  const char *query1 = "SELECT attributes.a_name, usr_attrs.a_value, NULL, NULL "
     "FROM attributes, usr_attrs "
     "WHERE attributes.a_id = usr_attrs.a_id AND "
     "usr_attrs.u_id = :1";
 
-  char *query2 = "SELECT attributes.a_name, group_attrs.a_value, groups.dn, NULL "
+  const char *query2 = "SELECT attributes.a_name, group_attrs.a_value, groups.dn, NULL "
     "FROM attributes, group_attrs, groups, m "
     "WHERE attributes.a_id = group_attrs.a_id AND "
     "groups.gid = m.gid AND "
@@ -560,7 +560,7 @@ bool Session::operationGetAllAttribs(signed long int uid, std::vector<gattrib> &
     "m.rid is NULL AND "
     "group_attrs.g_id = m.gid";
 
-  char *query3 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
+  const char *query3 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
     "FROM attributes, role_attrs, groups, roles, m "
     "WHERE attributes.a_id = role_attrs.a_id AND "
     "groups.gid = m.gid AND "
@@ -583,7 +583,7 @@ bool Session::operationGetAllAttribs(signed long int uid, std::vector<gattrib> &
 
 bool Session::operationGetGroups(signed long int uid, std::vector<std::string> &fqans)
 {
-  char *query = "SELECT groups.dn, NULL FROM groups, m "
+  const char *query = "SELECT groups.dn, NULL FROM groups, m "
     "LEFT JOIN roles ON roles.rid = m.rid "
     "WHERE groups.gid = m.gid AND "
     "m.userid = :1";
@@ -600,7 +600,7 @@ bool Session::operationGetGroups(signed long int uid, std::vector<std::string> &
 
 bool Session::operationGetRoles(signed long int uid, std::vector<std::string> &fqans, const char* role)
 {
-  char *query =     "SELECT groups.dn, role FROM groups, m "
+  const char *query =     "SELECT groups.dn, role FROM groups, m "
     "LEFT JOIN roles ON roles.rid = m.rid "
     "WHERE groups.gid = m.gid AND "
     "roles.role = :1 AND m.userid = :2";
@@ -623,7 +623,7 @@ bool Session::operationGetRoles(signed long int uid, std::vector<std::string> &f
 bool Session::operationGetGroupsAndRole(signed long int uid, std::vector<std::string> &fqans,
                                         const char *group, const char *role)
 {
-  char *query =     "SELECT groups.dn, role FROM groups, m "
+  const char *query =     "SELECT groups.dn, role FROM groups, m "
     "LEFT JOIN roles ON roles.rid = m.rid "
     "WHERE groups.gid = m.gid AND "
     "groups.dn = :1 AND roles.role = :2 AND "
@@ -669,7 +669,7 @@ bool Session::bindParameters(void *h, OCIStmt *stmt, int numParams, binder *bind
 }
 
 
-bool Session::getFQANs(char *query, int numparams, binder *binders, std::vector<std::string> &fqans)
+bool Session::getFQANs(const char *query, int numparams, binder *binders, std::vector<std::string> &fqans)
 {
   OCIStmt *stmt = NULL;
 
@@ -814,7 +814,7 @@ static char *normalize(char * candidate)
   return out;
 }
 
-bool Session::getAttributes(char *query, int numparams, binder *binders, std::vector<gattrib> &attrs)
+bool Session::getAttributes(const char *query, int numparams, binder *binders, std::vector<gattrib> &attrs)
 {
   OCIStmt *stmt;
 

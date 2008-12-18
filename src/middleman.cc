@@ -25,6 +25,7 @@ extern "C"
 #include <pthread.h>
 #include <signal.h>
 #include <ctype.h>
+#include <string.h>
 #include <openssl/x509.h>
 }
 
@@ -113,10 +114,12 @@ int main(int argc, char *argv[])
   int newsock;
   struct sockaddr_in peeraddr_in;
   socklen_t addrlen = sizeof(peeraddr_in);
+
 #ifndef HAVE_SOCKLEN_T
-  newsock = accept(sock, (struct sockaddr*)&peeraddr_in, &((int)addrlen));
+  int addrlenint = (int)addrlen;
+  newsock = accept(sock, (struct sockaddr*)(&peeraddr_in), &((int)addrlen));
 #else
-  newsock = accept(sock, (struct sockaddr*)&peeraddr_in, &addrlen);
+  newsock = accept(sock, (struct sockaddr*)(&peeraddr_in), &addrlen);
 #endif
   
   // receive the password
@@ -158,7 +161,7 @@ int main(int argc, char *argv[])
   for (;;) {
     int *newsockp = new int;
 #ifndef HAVE_SOCKLEN_T
-    *newsock = accept(sock, (struct sockaddr*)&peeraddr_in, &((int)addrlen));
+    *newsockp = accept(sock, (struct sockaddr*)&peeraddr_in, &((int)addrlen));
 #else
     *newsockp = accept(sock, (struct sockaddr*)&peeraddr_in, &addrlen);
 #endif

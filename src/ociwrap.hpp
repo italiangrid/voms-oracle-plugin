@@ -27,6 +27,7 @@ extern "C"
 #include <netdb.h>
 #include <pthread.h>
 #include <openssl/x509.h>
+#include <string.h>
 }
 
 static pthread_mutex_t table_access = PTHREAD_MUTEX_INITIALIZER;
@@ -87,7 +88,7 @@ public:
   
   ~Session();
   
-  bool execute_query(void *h, OCIStmt **stmt_out, char *query, int numParams, binder *binders);
+  bool execute_query(void *h, OCIStmt **stmt_out, const char *query, int numParams, binder *binders);
   std::string getError();
   void setError(bool oracle, std::string message="", OCIStmt *stmt = NULL);
   bool operationGetDBVersion(int *ver);
@@ -105,8 +106,8 @@ public:
   bool operationGetGroupsAndRole(signed long int uid, std::vector<std::string> &fqans,
                                  const char *group, const char *role);
   bool bindParameters(void *h, OCIStmt *stmt, int numParams, binder *binders);
-  bool getFQANs(char *query, int numparams, binder *binders, std::vector<std::string> &fqans);
-  bool getAttributes(char *query, int numparams, binder *binders, std::vector<gattrib> &attrs);
+  bool getFQANs(const char *query, int numparams, binder *binders, std::vector<std::string> &fqans);
+  bool getAttributes(const char *query, int numparams, binder *binders, std::vector<gattrib> &attrs);
 
   int dbVersion;
  
