@@ -32,7 +32,7 @@ AC_DEFUN([VOMS_CERTS],
         [ 
         X509 *cert;
         unsigned char **buffer;
-        return d2i_X509(NULL, buffer, 0);
+        cert = d2i_X509(NULL, buffer, 0);
         ],
         [ac_have_const_dti="no"],
         [ac_have_const_dti="yes"])

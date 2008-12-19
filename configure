@@ -20033,8 +20033,8 @@ main ()
 {
 
         X509 *cert;
-        const unsigned char **buffer;
-        return d2i_X509(NULL, buffer, 0);
+        unsigned char **buffer;
+        cert = d2i_X509(NULL, buffer, 0);
 
   ;
   return 0;
@@ -20062,12 +20062,12 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_have_const_dti="yes"
+  ac_have_const_dti="no"
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_have_const_dti="no"
+ac_have_const_dti="yes"
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 
