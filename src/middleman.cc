@@ -36,6 +36,14 @@ extern "C"
 #define INTSIZE (((sizeof(int)*CHAR_BIT)/3)+2)
 #define HANDLESIZE (INTSIZE - 1)
 
+extern "C" {
+
+static X509* makecert(unsigned char **buffer, int len) {
+  return d2i_X509(NULL, buffer, len);
+}
+
+}
+
 static int delay = 0;
 
 static int         port = 0;
@@ -282,7 +290,7 @@ void do_query(int sock, const std::string& handle, const std::string& query)
       std::string buffer = real.substr(9);
       signed long int uid = -1;
       unsigned char *realbuf = (unsigned char *)buffer.c_str();
-      X509 *cert = d2i_X509(NULL, &realbuf, size);
+      X509 *cert = makecert(&realbuf, size);
       bool result = session.operationGetUID(cert, &uid);
       X509_free(cert);
       if (result) {
