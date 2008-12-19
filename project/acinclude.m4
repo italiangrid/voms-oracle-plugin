@@ -19,6 +19,34 @@ if ! test "x$wrn" = "x" ; then
 fi
 ])
 
+AC_DEFUN([VOMS_CERTS],
+[
+  AC_MSG_CHECKING([for type of d2i_X509])
+  AC_LANG_PUSH(C++)
+  AC_TRY_COMPILE(
+        [
+        extern "C" {
+        #include <openssl/x509.h>
+        }
+        ],
+        [ 
+        X509 *cert;
+        const unsigned char **buffer;
+        return d2i_X509(NULL, buffer, 0);
+        ],
+        [ac_have_const_dti="yes"],
+        [ac_have_const_dti="no"])
+
+  if test "X$ac_have_const_dti" = "Xyes" ; then
+    AC_MSG_RESULT([const unsigned char])
+    AC_DEFINE(HAVE_CONST_TYPE_X509, 1, [Define to 1 if const is necessary])
+  else
+    AC_MSG_RESULT([unsigned char])
+  fi
+  AC_LANG_POP(C++)
+
+])
+
 # SOCKLEN_T TESTING
 # -----------------
 AC_DEFUN([VOMS_SOCKLEN_T],

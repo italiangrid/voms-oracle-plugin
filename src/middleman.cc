@@ -39,7 +39,11 @@ extern "C"
 extern "C" {
 
 static X509* makecert(unsigned char **buffer, int len) {
+#ifdef HAVE_CONST_TYPE_X509
+  return d2i_X509(NULL, (const unsigned char **)(buffer), len);
+#else
   return d2i_X509(NULL, buffer, len);
+#endif
 }
 
 }

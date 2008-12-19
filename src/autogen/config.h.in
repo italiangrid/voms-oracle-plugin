@@ -1,5 +1,8 @@
 /* src/autogen/config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define to 1 if const is necessary */
+#undef HAVE_CONST_TYPE_X509
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
