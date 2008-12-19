@@ -31,11 +31,11 @@ AC_DEFUN([VOMS_CERTS],
         ],
         [ 
         X509 *cert;
-        const unsigned char **buffer;
+        unsigned char **buffer;
         return d2i_X509(NULL, buffer, 0);
         ],
-        [ac_have_const_dti="yes"],
-        [ac_have_const_dti="no"])
+        [ac_have_const_dti="no"],
+        [ac_have_const_dti="yes"])
 
   if test "X$ac_have_const_dti" = "Xyes" ; then
     AC_MSG_RESULT([const unsigned char])
