@@ -64,7 +64,6 @@ Session::~Session()
 bool Session::execute_query(void *h, OCIStmt **stmt_out, const char *query, int numParams, binder *binders)
 {
   OCIStmt *stmt = NULL;
-  //  sword res;
 
   // prepare the statement
   if (OCI_SUCCESS != OCIStmtPrepare2(service,
@@ -130,13 +129,7 @@ void Session::setError(bool oracle, std::string message, OCIStmt *stmt)
       OCIErrorGet(error, 1, 0, &code, buffer, 512, OCI_HTYPE_ERROR);
       sprintf(buf, "%.5ld", code);
       msg = std::string(buf) + reinterpret_cast<char*>(buffer);
-      //      return static_cast<int>(code);
       break;
-      /*
-    case OCI_INVALID_HANDLE:
-      msg = "OCI_INVALID_HANDLE";
-      break;
-      */
     default:
       msg = "000000Unknown error code";
     }
@@ -204,182 +197,88 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
   OCILobLocator *isslob = NULL;
   OCILobLocator *onelob = NULL;
 
-  if (0) {
-    if (insecure)
-      query = "SELECT certificate.id, certificate.suspended, "
-        "certificate.suspension_reason "
-        "FROM certificate, ca "
-        "WHERE certificate.subject_der = :1";
-    else
-      query = "SELECT certificate.id, certificate.suspended, "
-        "certificate.suspension_reason "
-        "FROM certificate, ca "
-        "WHERE certificate.subject_der = :1 AND "
-        "certificate.ca_id = ca.id AND "
-        "ca.subject_der = :2";
+  if (stmt)
+    OCIStmtRelease(stmt, error, NULL, 0, OCI_DEFAULT);
+  stmt = NULL;
 
-    if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
-                                             (text*)query, strlen(query), 0, 0,
-                                              OCI_NTV_SYNTAX, OCI_DEFAULT))) {
-      /* Try DER */
-      /* Determine subject and issuer blob. */
-      int   lensubj = i2d_X509_NAME(subject, NULL);
-      realpointersubj = buffersubj = (unsigned char*)malloc(lensubj);
-      
-      if (!buffersubj)
-        goto err;
-
-      (void)i2d_X509_NAME(subject, &buffersubj);
-
-      /* defining blob locator */
-
-
-//       if (OCI_SUCCESS != (res = OCIDescriptorAlloc(env, (dvoid**)&onelob, 
-//                                                    OCI_DTYPE_LOB, 0, 0)))
-//         goto err;
-      /* binding blob */
-
-      if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind1, error, 1, 
-                                             (dvoid **)&realpointersubj, lensubj,
-                                             SQLT_BIN, 0, 0, 0, 0, 0, OCI_DEFAULT)))
-        goto err;
-
-//       ub4 amt = lensubj;
-//       if (OCI_SUCCESS != (res = OCILobWrite(service, error, onelob, &amt, 1, 
-//                                             realpointersubj, lensubj,
-//                                             OCI_ONE_PIECE, NULL, NULL, 0, 
-//                                             SQLCS_IMPLICIT)))
-//         goto err;
-
-      if (!insecure) {
-        int leniss  = i2d_X509_NAME(issuer, NULL);
-        realpointeriss = bufferiss  = (unsigned char*)malloc(leniss);
-
-        if (!bufferiss)
-          goto err;
-
-      /* defining blob locator */
-
-//         if (OCI_SUCCESS !=  (res = OCIDescriptorAlloc(env, (dvoid **)&isslob, 
-//                                                     OCI_DTYPE_LOB, 0, 0)))
-//           goto err;
-//         ub4 amt = lensubj;
-//         if (OCI_SUCCESS != (res = OCILobWrite(service, error, isslob, &amt, 0, 
-//                                               realpointersubj, lensubj,
-//                                               OCI_ONE_PIECE, NULL, NULL, 0, 0)))
-//           goto err;
-        /* binding blob */
-
-        (void)i2d_X509_NAME(issuer, &bufferiss);
-        if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind2, error, 2, &realpointeriss, leniss, 
-                                               SQLT_BIN, 0, 0, 0, 0, 0, OCI_DEFAULT)))
-          goto err;
-      }
-
-      if (OCI_SUCCESS == (res = OCIStmtExecute(service, stmt, error, 0, 0, 0, 0, 
-                                               OCI_STMT_SCROLLABLE_READONLY))) {
-        OCIDefine* defnpp = (OCIDefine *)0;
-        if (OCI_SUCCESS != (res = OCIDefineByPos(stmt,  &defnpp, error, 1, &uid, 
-                                          sizeof(uid), SQLT_INT, 0, 0, 0,
-                                                 OCI_DEFAULT)))
-          goto err;
-        if (OCI_SUCCESS != (res = OCIDefineByPos(stmt,  &defnpp, error, 2, &suspended, 
-                                          sizeof(suspended), SQLT_INT, 0, 0, 0,
-                                                 OCI_DEFAULT)))
-          goto err;
-        
-        if (OCI_SUCCESS == (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
-                                                OCI_DEFAULT)))
-          result = true;
-        goto err;
-      }
-    }
-  }
-  else {
-    if (stmt)
-      OCIStmtRelease(stmt, error, NULL, 0, OCI_DEFAULT);
-    stmt = NULL;
-
-    if (!insecure) {
+  if (!insecure) {
 
     /* dbVersion == 2 or old table */
-      query = (dbVersion == 3 ?
-               "SELECT id FROM ca WHERE subject_string = :1" :
-               "SELECT cid FROM ca WHERE ca.ca = :1");
-
-      if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
-                                         (text*)query, strlen(query), 0, 0,
-                                                OCI_NTV_SYNTAX, OCI_DEFAULT))) {
-        caname = normalize(X509_NAME_oneline(issuer, NULL, 0));
-        if (!caname)
-          goto err;
-
-        if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind1, error, 1, caname, 
-                                        strlen(caname) +1, SQLT_STR, 0, 0, 0, 0, 0,
-                                               OCI_DEFAULT))) {
-          free(caname);
-          goto err;
-        }
-        if (OCI_SUCCESS == (res = OCIStmtExecute(service, stmt, error, 0, 0, 0, 0,
-                                                 OCI_STMT_SCROLLABLE_READONLY))) {
-          OCIDefine* defnpp = (OCIDefine *)0;
-          if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, &cid,
-                                           sizeof(cid), SQLT_INT, 0, 0, 0,
-                                                   OCI_DEFAULT)))
-            goto err;
-
-          if (OCI_SUCCESS != (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
-                                                  OCI_DEFAULT)))
-            goto err;
-
-        }
-        else
-          goto err;
-      }
-    }
-
-    if (stmt)
-      OCIStmtRelease(stmt, error, NULL, 0, OCI_DEFAULT);
-    stmt = NULL;
-     
-    bind1 = NULL;
-    /* now get uid */
-        
-    query = (dbVersion == 3 ? 
-             (insecure ? "SELECT usr_id FROM certificate WHERE subject_string = :1" :
-              "SELECT usr_id FROM certificate WHERE subject_string = :1 AND ca_id = :2") :
-             (insecure ? "SELECT userid FROM usr WHERE usr.dn = :1" :
-              "SELECT userid FROM usr WHERE usr.dn = :1 and ca = :2"));
+    query = (dbVersion == 3 ?
+             "SELECT id FROM ca WHERE subject_string = :1" :
+             "SELECT cid FROM ca WHERE ca.ca = :1");
 
     if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
-                                       (text*)query, strlen(query), 0, 0,
+                                              (text*)query, strlen(query), 0, 0,
                                               OCI_NTV_SYNTAX, OCI_DEFAULT))) {
-      subjname = normalize(X509_NAME_oneline(subject, NULL, 0));
-      if (!subjname)
+      caname = normalize(X509_NAME_oneline(issuer, NULL, 0));
+      if (!caname)
         goto err;
 
-      if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind1, error, 1, subjname, 
-                                      strlen(subjname) +1, SQLT_STR, 0, 0, 0, 0, 0,
-                                             OCI_DEFAULT)))
+      if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind1, error, 1, caname, 
+                                             strlen(caname) +1, SQLT_STR, 0, 0, 0, 0, 0,
+                                             OCI_DEFAULT))) {
+        free(caname);
         goto err;
-
-      if (!insecure)
-        if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind2, error, 2, &cid, sizeof(cid),
-                                               SQLT_INT, 0, 0, 0, 0, 0, OCI_DEFAULT)))
-          goto err;
-
+      }
       if (OCI_SUCCESS == (res = OCIStmtExecute(service, stmt, error, 0, 0, 0, 0,
                                                OCI_STMT_SCROLLABLE_READONLY))) {
         OCIDefine* defnpp = (OCIDefine *)0;
-        if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, uid,
-                                          sizeof(*uid), SQLT_INT, 0, 0, 0,
+        if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, &cid,
+                                                 sizeof(cid), SQLT_INT, 0, 0, 0,
+                                                 OCI_DEFAULT)))
+          goto err;
+
+        if (OCI_SUCCESS != (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
                                                 OCI_DEFAULT)))
-            goto err;
-        if (OCI_SUCCESS == (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
-                                               OCI_DEFAULT)))
-          result = true;
-        goto err;
+          goto err;
       }
+      else
+        goto err;
+    }
+  }
+
+  if (stmt)
+    OCIStmtRelease(stmt, error, NULL, 0, OCI_DEFAULT);
+  stmt = NULL;
+     
+  bind1 = NULL;
+  /* now get uid */
+        
+  query = (dbVersion == 3 ? 
+           (insecure ? "SELECT usr_id FROM certificate WHERE subject_string = :1 AND suspended = 0" :
+            "SELECT usr_id FROM certificate WHERE subject_string = :1 AND ca_id = :2 AND suspended = 0") :
+           (insecure ? "SELECT userid FROM usr WHERE usr.dn = :1" :
+            "SELECT userid FROM usr WHERE usr.dn = :1 and ca = :2"));
+
+  if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
+                                            (text*)query, strlen(query), 0, 0,
+                                            OCI_NTV_SYNTAX, OCI_DEFAULT))) {
+    subjname = normalize(X509_NAME_oneline(subject, NULL, 0));
+    if (!subjname)
+      goto err;
+
+    if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind1, error, 1, subjname, 
+                                           strlen(subjname) +1, SQLT_STR, 0, 0, 0, 0, 0,
+                                           OCI_DEFAULT)))
+      goto err;
+
+    if (!insecure)
+      if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind2, error, 2, &cid, sizeof(cid),
+                                             SQLT_INT, 0, 0, 0, 0, 0, OCI_DEFAULT)))
+        goto err;
+
+    if (OCI_SUCCESS == (res = OCIStmtExecute(service, stmt, error, 0, 0, 0, 0,
+                                             OCI_STMT_SCROLLABLE_READONLY))) {
+      OCIDefine* defnpp = (OCIDefine *)0;
+      if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, uid,
+                                               sizeof(*uid), SQLT_INT, 0, 0, 0,
+                                               OCI_DEFAULT)))
+        goto err;
+      if (OCI_SUCCESS == (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
+                                              OCI_DEFAULT)))
+        result = true;
+      goto err;
     }
   }
  
@@ -516,17 +415,6 @@ bool Session::operationGetRoleAttribs(signed long int uid, const char *role,
     "attributes.a_id = role_attrs.a_id AND "
     "role_attrs.r_id = roles.rid AND "
     "m.userid = :1 and roles.role = :2";
-
-//   char *query2 = "SELECT attributes.a_name, role_attrs.a_value, groups.dn, roles.role "
-//     "FROM attributes, role_attrs, groups, roles, m "
-//     "INNER JOIN groups ON m.gid=groups.gid "
-//     "LEFT JOIN roles ON roles.rid = m.rid "
-//     "INNER JOIN role_attrs on groups.gid = role_attrs.g_id "
-//     "INNER JOIN attributes on attributes.a_id = role_attrs.a_id "
-//     "WHERE role_attrs.r_id = roles.rid AND "
-//     "m.userid = :1 AND "
-//     "roles.rid = :2";
-
 
   struct binder params[2];
 
@@ -1292,7 +1180,7 @@ Session SessionFactory::GetSession(int session)
   // retrieve connection from the table
   OCISvcCtx * svc = connections[session].svc;
 
-  // reset tmeout for the connection
+  // reset timeout for the connection
   pthread_mutex_lock(&table_access);
   connections[session].currtime = time(NULL);
   pthread_mutex_unlock(&table_access);
