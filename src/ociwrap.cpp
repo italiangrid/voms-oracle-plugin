@@ -205,8 +205,8 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
 
     /* dbVersion == 2 or old table */
     query = (dbVersion == 3 ?
-             "SELECT id FROM ca WHERE subject_string = :1" :
-             "SELECT id FROM ca WHERE ca.ca = :1");
+             "SELECT cid FROM ca WHERE subject_string = :1" :
+             "SELECT cid FROM ca WHERE ca.ca = :1");
 
     if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
                                               (text*)query, strlen(query), 0, 0,
