@@ -1,6 +1,6 @@
 
 AC_PREREQ(2.59)
-AC_INIT([Glite Security VOMS Oracle], [3.1.7])
+AC_INIT([Glite Security VOMS Oracle], [3.1.8])
 AC_CONFIG_AUX_DIR([./project])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/oraclewrap.cc])
@@ -45,6 +45,18 @@ AC_C_CONST
 
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE
+
+if test "x$host_cpu" = "xx86_64"; then
+    AC_SUBST([libdir], ['${exec_prefix}/lib64'])
+fi
+
+if test -h /usr/lib64 ; then
+    libdir='${exec_prefix}/lib'
+fi
+
+if ! test -e /usr/lib64 ; then
+    libdir='${exec_prefix}/lib'
+fi
 
 AM_CONFIG_HEADER([src/autogen/config.h])
 AC_CONFIG_FILES([Makefile
