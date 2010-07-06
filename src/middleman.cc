@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 
 #ifndef HAVE_SOCKLEN_T
   int addrlenint = (int)addrlen;
-  newsock = accept(sock, (struct sockaddr*)(&peeraddr_in), &((int)addrlen));
+  newsock = accept(sock, (struct sockaddr*)(&peeraddr_in), &addrlenint);
 #else
   newsock = accept(sock, (struct sockaddr*)(&peeraddr_in), &addrlen);
 #endif
