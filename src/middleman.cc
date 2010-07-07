@@ -184,7 +184,8 @@ int main(int argc, char *argv[])
   for (;;) {
     int *newsockp = new int;
 #ifndef HAVE_SOCKLEN_T
-    *newsockp = accept(sock, (struct sockaddr*)&peeraddr_in, &((int)addrlen));
+    int addrlenint = (int)addrlen;
+    *newsockp = accept(sock, (struct sockaddr*)&peeraddr_in, &addrlenint);
 #else
     *newsockp = accept(sock, (struct sockaddr*)&peeraddr_in, &addrlen);
 #endif
@@ -281,7 +282,7 @@ static void do_options(int sock, const std::string query)
 
 void do_query(int sock, const std::string& handle, const std::string& query)
 {
-  // drop white spaces at the beginnning
+// drop white spaces at the beginnning
 //   const char * str = query.c_str();
 //   while (isspace(*str))
 //     str++;

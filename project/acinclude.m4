@@ -59,7 +59,7 @@ AC_DEFUN([VOMS_SOCKLEN_T],
       ],
       [
         socklen_t addrlen = (socklen_t)5;
-        (void)getsockname(0, NULL, &addrlen); 
+        (void)getsockname(0, 0L, &addrlen); 
         return 0;
       ],
       [ac_have_socklen_t="yes"],
