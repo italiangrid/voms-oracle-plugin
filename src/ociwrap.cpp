@@ -132,17 +132,17 @@ void Session::setError(bool oracle, std::string message, OCIStmt *stmt)
   if (oracle) {
     switch (res) {
     case OCI_NO_DATA:
-      msg = "000000OCI_NO_DATA";
+      msg = "000000OCI_NO_DATA ";
       break;
   
     case OCI_INVALID_HANDLE:
     case OCI_ERROR:
       OCIErrorGet(error, 1, 0, &code, buffer, 512, OCI_HTYPE_ERROR);
       sprintf(buf, "%.5ld", code);
-      msg = std::string(buf) + reinterpret_cast<char*>(buffer);
+      msg = std::string(buf) + reinterpret_cast<char*>(buffer) + " ";
       break;
     default:
-      msg = "000000Unknown error code";
+      msg = "000000Unknown error code ";
     }
   }
 
@@ -150,10 +150,10 @@ void Session::setError(bool oracle, std::string message, OCIStmt *stmt)
     text *value = NULL;
     ub4 len = 0;
     OCIAttrGet(stmt, OCI_HTYPE_STMT, (dvoid **)&value, &len, OCI_ATTR_STATEMENT, error);
-    msg += " " + std::string((char *)value);
+    msg += std::string((char *)value) + " ";
   }
 
-  errorstring = msg + " " + message;
+  errorstring = msg + message;
 }
 
 bool Session::operationGetDBVersion(int *ver)
@@ -196,6 +196,7 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
   unsigned char *bufferiss = NULL;
   unsigned char *realpointeriss = NULL;
   const char *query = NULL;
+  const char *reason = NULL;
   bool result = false;
 
   signed long int cid = -1;
@@ -262,6 +263,12 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
            (insecure ? "SELECT userid FROM usr WHERE usr.dn = :1" :
             "SELECT userid FROM usr WHERE usr.dn = :1 and ca = :2"));
 
+  reason = (dbVersion == 3 ? 
+            (insecure ? "SELECT suspended_reason FROM certificate WHERE subject_string = :1 AND suspended != 0" :
+             "SELECT suspended_reason FROM certificate WHERE subject_string = :1 AND ca_id = :2 AND suspended != 0") :
+            NULL);
+
+
   if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
                                             (text*)query, strlen(query), 0, 0,
                                             OCI_NTV_SYNTAX, OCI_DEFAULT))) {
@@ -285,12 +292,73 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
       if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, uid,
                                                sizeof(*uid), SQLT_INT, 0, 0, 0,
                                                OCI_DEFAULT)))
-        goto err;
+        goto suspendederr;
       if (OCI_SUCCESS == (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
                                               OCI_DEFAULT)))
         result = true;
-      goto err;
+      goto suspendederr;
     }
+    else
+      goto suspendederr;
+  }
+
+  /* Determine suspension reason */
+suspendederr:
+  if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
+                                            (text*)reason, strlen(reason), 0, 0,
+                                            OCI_NTV_SYNTAX, OCI_DEFAULT))) {
+
+    if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind1, error, 1, subjname, 
+                                           strlen(subjname) +1, SQLT_STR, 0, 0, 0, 0, 0,
+                                           OCI_DEFAULT)))
+      goto err;
+
+    if (!insecure)
+      if (OCI_SUCCESS != (res = OCIBindByPos(stmt, &bind2, error, 2, &cid, sizeof(cid),
+                                             SQLT_INT, 0, 0, 0, 0, 0, OCI_DEFAULT)))
+        goto err;
+
+    if (OCI_SUCCESS == (res = OCIStmtExecute(service, stmt, error, 0, 0, 0, 0,
+                                             OCI_STMT_SCROLLABLE_READONLY))) {
+      OCIDefine* defnpp = (OCIDefine *)0;
+      OCIParam *colhd = NULL;
+      int len;
+      text *buffer;
+      sb2 indicator;
+
+      if (OCI_SUCCESS != OCIParamGet((dvoid*)stmt, (ub4)OCI_HTYPE_STMT, error,
+                                     (dvoid **)&colhd, (ub4)1))
+        goto err;
+
+      if (OCI_SUCCESS != OCIAttrGet((dvoid*)colhd, (ub4)OCI_DTYPE_PARAM,
+                                    (dvoid*)&len, NULL, (ub4)OCI_ATTR_DATA_SIZE,
+                                    error))
+        goto err;
+
+      void *h = CreateBlocks();
+      buffer = (text*)GetBlock(h, len+1);
+      if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, 
+                                               (dvoid*)buffer, len, SQLT_STR,
+                                               (dvoid*)&indicator, 0, 0,
+                                               OCI_DEFAULT)))
+        {
+          FreeBlocks(h);
+          goto err;
+        }
+      if (OCI_SUCCESS == (res = OCIStmtFetch2(stmt, error, 1, OCI_FETCH_NEXT, 0,
+                                              OCI_DEFAULT))) {
+        setError(false, "00011" + std::string((char*)buffer, (int)len));
+        FreeBlocks(h);
+        result = false;
+        goto end;
+      }
+      else {
+        FreeBlocks(h);
+        goto err;
+      }
+    }
+    else
+      goto err;
   }
  
   err:
@@ -301,6 +369,7 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
   else if (!result)
     setError(false, "Out of memory.");
 
+ end:
   if (stmt)
     OCIStmtRelease(stmt, error, NULL, 0, OCI_DEFAULT);
   if (caname)

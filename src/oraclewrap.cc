@@ -133,7 +133,6 @@ bool orinterface::setOption(int option, void *value)
       err = atoi(code);
       std::string s = std::string(msg, 5);
       setError(ERR_DBERR, "middleman cannot fetch result : " +s);
-      return false;
     }
   }
   else {
@@ -593,9 +592,14 @@ bool orinterface::operation(int operation_type, void *result, ...)
     code[3] = (msg.data())[3];
     code[4] = (msg.data())[4];
     code[5] = '\0';
-    err = atoi(code);
+    int myerr = atoi(code);
     std::string s = std::string(msg, 5);
-    setError(ERR_DBERR, "middleman cannot fetch result : " +s);
+
+    if (err = ERR_USER_SUSPENDED)
+      setError(err, s);
+    else
+      setError(ERR_DBERR, "middleman cannot fetch result : " +s);
+
     return false;
   }
 

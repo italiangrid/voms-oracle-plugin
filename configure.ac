@@ -1,6 +1,6 @@
 
 AC_PREREQ(2.59)
-AC_INIT([Glite Security VOMS Oracle], [3.1.8])
+AC_INIT([Glite Security VOMS Oracle], [3.1.10])
 AC_CONFIG_AUX_DIR([./project])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/oraclewrap.cc])
