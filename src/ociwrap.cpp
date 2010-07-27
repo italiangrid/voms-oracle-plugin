@@ -336,6 +336,7 @@ suspendederr:
         goto err;
 
       void *h = CreateBlocks();
+      len = (len > 1000 ? 1000 : len);
       buffer = (text*)GetBlock(h, len+1);
       if (OCI_SUCCESS != (res = OCIDefineByPos(stmt, &defnpp, error, 1, 
                                                (dvoid*)buffer, len, SQLT_STR,
