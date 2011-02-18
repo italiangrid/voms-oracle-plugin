@@ -354,8 +354,9 @@ suspendederr:
         goto end;
       }
       else {
+        setError(false, "00009User not found");
         FreeBlocks(h);
-        goto err;
+        goto end;
       }
     }
     else

@@ -595,8 +595,8 @@ bool orinterface::operation(int operation_type, void *result, ...)
     int myerr = atoi(code);
     std::string s = std::string(msg, 5);
 
-    if (err = ERR_USER_SUSPENDED)
-      setError(err, s);
+    if (myerr == ERR_USER_SUSPENDED)
+      setError(myerr, s);
     else
       setError(ERR_DBERR, "middleman cannot fetch result : " +s);
 
