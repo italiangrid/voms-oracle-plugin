@@ -653,7 +653,7 @@ bool Session::getFQANs(const char *query, int numparams, binder *binders, std::v
 
     // column buffer
     int limit =  256;
-    text * s = (text *)malloc(limit + 1);
+    //    text * s = (text *)malloc(limit + 1);
     
     res = OCI_SUCCESS;
 
@@ -798,7 +798,7 @@ bool Session::getAttributes(const char *query, int numparams, binder *binders, s
 
     // column buffer
     int limit =  256;
-    text * s = (text *)malloc(limit + 1);
+    //    text * s = (text *)malloc(limit + 1);
     
     res = OCI_SUCCESS;
 
