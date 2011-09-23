@@ -304,6 +304,10 @@ bool Session::operationGetUID(X509 *cert, signed long int *uid)
 
   /* Determine suspension reason */
 suspendederr:
+  if (stmt)
+    OCIStmtRelease(stmt, error, NULL, 0, OCI_DEFAULT);
+  stmt = NULL;
+
   if (OCI_SUCCESS == (res = OCIStmtPrepare2(service, &stmt, error, 
                                             (text*)reason, strlen(reason), 0, 0,
                                             OCI_NTV_SYNTAX, OCI_DEFAULT))) {
