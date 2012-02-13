@@ -1,14 +1,15 @@
-
 AC_PREREQ(2.59)
-AC_INIT([Glite Security VOMS Oracle], [3.1.14])
-AC_CONFIG_AUX_DIR([./project])
-AM_INIT_AUTOMAKE
+AC_INIT([VOMS Oracle plugin], [3.1.15])
+AC_PREFIX_DEFAULT("/")
+AC_CONFIG_AUX_DIR([./aux])
 AC_CONFIG_SRCDIR([src/oraclewrap.cc])
+AC_CONFIG_MACRO_DIR([m4])
 
+AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
 
 # Notices.
-AC_COPYRIGHT([Copyright (c) 2004 The EU EGEE Project
+AC_COPYRIGHT([Copyright (c) 2004-2012 Istituto Nazionale di Fisica Nucleare
 See LICENCE file for details
 ])
 
@@ -25,13 +26,10 @@ AC_PROG_LIBTOOL
 
 # Checks for libraries
 
-# Dependencies checks
-AC_ENABLE_GLITE # embed AC_GLITE
-
 # check for oracle
 AC_ORACLE_INSTANTCLIENT
-VOMS_CERTS
 
+VOMS_CERTS
 DEBUG
 VOMS_SOCKLEN_T
 
@@ -46,21 +44,8 @@ AC_C_CONST
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE
 
-if test "x$host_cpu" = "xx86_64"; then
-    AC_SUBST([libdir], ['${exec_prefix}/lib64'])
-fi
-
-if test -h /usr/lib64 ; then
-    libdir='${exec_prefix}/lib'
-fi
-
-if ! test -e /usr/lib64 ; then
-    libdir='${exec_prefix}/lib'
-fi
-
 AM_CONFIG_HEADER([src/autogen/config.h])
 AC_CONFIG_FILES([Makefile
                  config/Makefile
                  src/Makefile])
-
 AC_OUTPUT

@@ -1,6 +1,5 @@
-
-sysconfdir = $(prefix)/etc/voms
-sysconf_DATA = voms-oracle.data
+dbconfdir = $(datadir)/voms
+dbconf_DATA = voms-oracle.data
 
 EXTRA_DIST = voms-oracle.data
 

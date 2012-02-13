@@ -1,53 +1,42 @@
-
 SUBDIRS = config src
+ACLOCAL_AMFLAGS = -I m4
 
-ACLOCAL_AMFLAGS = -I project
+EXTRA_DIST = autogen.sh LICENSE
 
-stage:
-	@set fnord $(MAKEFLAGS); amf=$$2; \
-	dot_seen=no; \
-        target="install"; \
-	prefix_arg=@prefix@; \
-        list='$(SUBDIRS)'; for subdir in $$list; do \
-          echo "Making $$target $$prefix_arg in $$subdir"; \
-          if test "$$subdir" = "."; then \
-            dot_seen=yes; \
-            local_target="$$target-am"; \
-          else \
-            local_target="$$target"; \
-          fi; \
-          (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target $$prefix_arg) \
-           || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
-        done; \
-        if test "$$dot_seen" = "no"; then \
-          $(MAKE) $(AM_MAKEFLAGS) "$$target-am" $$prefix_arg || exit 1; \
-        fi; test -z "$$fail"
+rpmbuild_dir=@WORKDIR@/rpmbuild
+debbuild_dir=@WORKDIR@/debbuild
+
+spec=spec/voms-oracle-plugin.spec
+rpmdist=""
+stage_dir=dist
+
+oracle_prefix=/usr
+oracle_version=10.2.0.5
 
 distsrc: dist
 	mv $(distdir).tar.gz $(DISTTAR)/$(distdir)_src.tar.gz
 
-distbin:
-	@set fnord $(MAKEFLAGS); amf=$$2; \
-        dot_seen=no; \
-        target="install"; \
-	tmpdistbin="$(WORKDIR)/dist_bin"; \
-        prefix_arg="prefix=$$tmpdistbin"; \
-        list='$(SUBDIRS)'; for subdir in $$list; do \
-          echo "Making $$target $$prefix_arg in $$subdir"; \
-          if test "$$subdir" = "."; then \
-            dot_seen=yes; \
-            local_target="$$target-am"; \
-          else \
-            local_target="$$target"; \
-          fi; \
-          (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target $$prefix_arg) \
-           || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
-        done; \
-        if test "$$dot_seen" = "no"; then \
-          $(MAKE) $(AM_MAKEFLAGS) "$$target-am" $$prefix_arg || exit 1; \
-        fi; test -z "$$fail"; \
-	pushd $$tmpdistbin; \
-	$(AMTAR) -zcf $(DISTTAR)/$(distdir)_bin.tar.gz .; \
-	popd; \
-	rm -rf $$tmpdistbin
+distclean-local:
+	rm -f configure aclocal.m4 $(distdir).tar.gz
+	rm -f m4/libtool.m4 m4/ltoptions.m4 m4/ltsugar.m4 m4/ltversion.m4 m4/lt~obsolete.m4
+	rm -rf autom4te.cache aux src/autogen $(rpmbuild_dir) $(debbuild_dir)
+	find . -name Makefile.in -exec rm {} \;
 
+clean-local:
+	rm -rf $(rpmbuild_dir) $(debbuild_dir) $(distdir).tar.gz dist
+
+rpm: dist
+	mkdir -p $(rpmbuild_dir)/BUILD $(rpmbuild_dir)/RPMS $(rpmbuild_dir)/SOURCES $(rpmbuild_dir)/SPECS $(rpmbuild_dir)/SRPMS
+	cp $(distdir).tar.gz $(rpmbuild_dir)/SOURCES
+	rpmbuild --nodeps -v -ba $(spec) --define "_topdir $(rpmbuild_dir)" --define "dist $(rpmdist)" \
+        --define "oracle_prefix $(oracle_prefix)" --define "oracle_version $(oracle_version)"
+
+stage:
+	mkdir -p $(stage_dir)
+	
+	for r in $(shell find $(rpmbuild_dir)/RPMS -name '*.rpm') ; do \
+		echo "Istalling `basename $$r` in $(stage_dir)..."; \
+		pushd . ; cp $$r $(stage_dir); cd $(stage_dir); \
+		rpm2cpio `basename $$r` | cpio -idm; \
+		rm `basename $$r`; popd; \
+	done
