@@ -40,3 +40,8 @@ stage:
 		rpm2cpio `basename $$r` | cpio -idm; \
 		rm `basename $$r`; popd; \
 	done
+
+etics: clean rpm 
+	mkdir -p tgz RPMS
+	cp $(distdir).tar.gz tgz
+	cp -r $(rpmbuild_dir)/RPMS/* $(rpmbuild_dir)/SRPMS/* RPMS
