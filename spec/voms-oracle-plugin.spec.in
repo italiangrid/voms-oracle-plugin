@@ -14,6 +14,7 @@ Obsoletes:	voms-oracle < %{version}-%{release}
 Requires:	voms-server%{?_isa}
 
 BuildRequires:	libtool
+BuildRequires:  openssl-devel
 BuildRequires:	oracle-instantclient-devel%{?_isa}
 BuildRequires:	oracle-instantclient-basic%{?_isa}
 
