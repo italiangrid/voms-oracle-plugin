@@ -47,5 +47,6 @@ AC_FUNC_ERROR_AT_LINE
 AM_CONFIG_HEADER([src/autogen/config.h])
 AC_CONFIG_FILES([Makefile
                  config/Makefile
-                 src/Makefile])
+                 src/Makefile
+                 spec/voms-oracle-plugin.spec])
 AC_OUTPUT

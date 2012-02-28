@@ -7,11 +7,10 @@ rpmbuild_dir=@WORKDIR@/rpmbuild
 debbuild_dir=@WORKDIR@/debbuild
 
 spec=spec/voms-oracle-plugin.spec
-rpmdist=""
 stage_dir=dist
 
-oracle_prefix=/usr
-oracle_version=10.2.0.5
+oracle_prefix=@ORACLE_PATH@
+oracle_version=@ORACLE_VERSION@
 
 distsrc: dist
 	mv $(distdir).tar.gz $(DISTTAR)/$(distdir)_src.tar.gz
@@ -28,8 +27,7 @@ clean-local:
 rpm: dist
 	mkdir -p $(rpmbuild_dir)/BUILD $(rpmbuild_dir)/RPMS $(rpmbuild_dir)/SOURCES $(rpmbuild_dir)/SPECS $(rpmbuild_dir)/SRPMS
 	cp $(distdir).tar.gz $(rpmbuild_dir)/SOURCES
-	rpmbuild --nodeps -v -ba $(spec) --define "_topdir $(rpmbuild_dir)" --define "dist $(rpmdist)" \
-        --define "oracle_prefix $(oracle_prefix)" --define "oracle_version $(oracle_version)"
+	rpmbuild --nodeps -v -ba $(spec) --define "_topdir $(rpmbuild_dir)"
 
 stage:
 	mkdir -p $(stage_dir)
