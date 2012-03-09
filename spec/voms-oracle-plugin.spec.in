@@ -15,8 +15,8 @@ Requires:	voms-server%{?_isa}
 
 BuildRequires:	libtool
 BuildRequires:  openssl-devel
-BuildRequires:	oracle-instantclient-devel%{?_isa}
-BuildRequires:	oracle-instantclient-basic%{?_isa}
+BuildRequires:	oracle-instantclient-devel
+BuildRequires:	oracle-instantclient-basic
 
 %description
 The Virtual Organization Membership Service (VOMS) is an attribute authority
