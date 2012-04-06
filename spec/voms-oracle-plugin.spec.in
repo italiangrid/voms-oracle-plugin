@@ -52,6 +52,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_datadir}/voms/voms-oracle.data
 %{_libdir}/libvomsoracle.so
+%{_bindir}/middleman
 
 %changelog
 * Tue May 31 2011 Andrea Ceccanti <andrea.ceccanti@cnaf.infn.it> - 3.1.15-1
