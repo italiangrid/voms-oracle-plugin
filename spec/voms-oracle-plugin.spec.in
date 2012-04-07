@@ -1,3 +1,8 @@
+## The automatic calculations of dependencies needs to be disabled
+## since Oracle rpms do not set correctly the "provides" for their
+## libraries.
+AutoReqProv: no
+
 Name:		voms-oracle-plugin
 Version:	3.1.15
 Release:	1%{?dist}
