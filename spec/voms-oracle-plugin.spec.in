@@ -5,7 +5,7 @@ AutoReqProv: no
 
 Name:		voms-oracle-plugin
 Version:	3.1.15
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	VOMS server plugin for ORACLE
 
 Group:		System Environment/Libraries
@@ -60,5 +60,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/middleman
 
 %changelog
+* Wed Jan 23 2013 Andrea Ceccanti <andrea.ceccanti@cnaf.infn.it> - 3.1.15-2
+- Adapted packaging to Oracle 11.2 libraries
 * Tue May 31 2011 Andrea Ceccanti <andrea.ceccanti@cnaf.infn.it> - 3.1.15-1
 - First build.

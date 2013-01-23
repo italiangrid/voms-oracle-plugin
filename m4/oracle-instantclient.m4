@@ -17,7 +17,12 @@ AC_DEFUN([AC_ORACLE_INSTANTCLIENT],
 
   ORACLE_PATH="$with_oracle_prefix"
   ORACLE_VERSION="$with_oracle_version"
-  if test -d "$with_oracle_prefix/include/oracle/$with_oracle_version/client"
+  if test -d "$with_oracle_prefix/lib64/oracle/$with_oracle_version/client/lib64"
+  then
+    AC_MSG_RESULT([Setting Oracle build flags for CERN packaging])
+    ORACLE_CFLAGS="-I$with_oracle_prefix/include/oracle/$with_oracle_version/client -I$with_oracle_prefix/include"
+    ac_oracle_ldlib="-L$with_oracle_prefix/lib64/oracle/$with_oracle_version/client/lib64"
+  elif test -d "$with_oracle_prefix/include/oracle/$with_oracle_version/client"
   then
     # AC_MSG_RESULT([Setting 32-bit Oracle FLAGS and Libraries])
     ORACLE_CFLAGS="-I$with_oracle_prefix/include/oracle/$with_oracle_version/client -I$with_oracle_prefix/include"
@@ -28,9 +33,9 @@ AC_DEFUN([AC_ORACLE_INSTANTCLIENT],
     ORACLE_CFLAGS="-I$with_oracle_prefix/include/oracle/$with_oracle_version/client64 -I$with_oracle_prefix/include"
     ac_oracle_ldlib="-L$with_oracle_prefix/lib/oracle/$with_oracle_version/client64/lib"
   fi
-  ORACLE_OCI_LIBS="$ac_oracle_ldlib -lclntsh -lnnz10 -lociei"
-  ORACLE_STATIC_OCCI_LIBS="$ac_oracle_ldlib -lclntsh -lnnz10 -lociei -locci10"
-  ORACLE_OCCI_LIBS="$ac_oracle_ldlib -lclntsh -lnnz10 -lociei -locci"
+  ORACLE_OCI_LIBS="$ac_oracle_ldlib -lclntsh -lnnz11 -lociei"
+  ORACLE_STATIC_OCCI_LIBS="$ac_oracle_ldlib -lclntsh -lnnz11 -lociei -locci10"
+  ORACLE_OCCI_LIBS="$ac_oracle_ldlib -lclntsh -lnnz11 -lociei -locci"
 
   AC_MSG_CHECKING([oracle installation])
   AC_MSG_RESULT([])
